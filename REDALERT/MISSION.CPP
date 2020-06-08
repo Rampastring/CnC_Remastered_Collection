@@ -561,6 +561,15 @@ bool MissionControlClass::Read_INI(CCINIClass & ini)
 		IsScatter = ini.Get_Bool(Name(), "Scatter", IsScatter);
 		Rate = ini.Get_Fixed(Name(), "Rate", Rate);
 		AARate = ini.Get_Fixed(Name(), "AARate", 0);
+	
+		// TODO would be better off in Rules.ini instead
+		if (Mission == MISSION_GUARD) {
+			Rate = fixed("0.016");
+		}
+		else if (Mission == MISSION_GUARD_AREA) {
+			Rate = fixed("0.032");
+		}
+
 		if (AARate == 0) {
 			AARate = Rate;
 		}
