@@ -373,6 +373,12 @@ RadioMessageType BuildingClass::Receive_Message(RadioClass * from, RadioMessageT
 				}
 			}
 			TechnoClass::Receive_Message(from, message, param);
+
+			if (Can_Have_Rally_Point() && Target_Legal(RallyPoint)) {
+				Queue_Mission(from->As_Target(), MISSION_MOVE, TARGET_NONE, Target_For_Rally_Point());
+				return RADIO_ROGER;
+			}
+
 			if (*this == STRUCT_WEAP || *this == STRUCT_AIRSTRIP || *this == STRUCT_REPAIR) return(RADIO_RUN_AWAY);
 			return(RADIO_ROGER);
 
@@ -504,6 +510,17 @@ void BuildingClass::Draw_It(int x, int y, WindowNumberType window) const
 		if (IsRepairing && IsWrenchVisible) {
 			CC_Draw_Shape(ObjectTypeClass::SelectShapes, SELECT_WRENCH, x, y, window, SHAPE_CENTER|SHAPE_WIN_REL);
 		}
+	}
+
+	// Draw rally point
+	if (Can_Have_Rally_Point() && Is_Selected_By_Player() && Is_Owned_By_Player() && RallyPoint && Target_Legal(RallyPoint))
+	{
+		int startX, startY, endX, endY;
+		Map.Coord_To_Pixel(Coord_Add(Coord, Class->ExitCoordinate), startX, startY);
+		Map.Coord_To_Pixel(As_Coord(RallyPoint), endX, endY);
+
+		// RA FUNCTION.H didn't have CC_Draw_Line, so maybe it doesn't work
+		CC_Draw_Line(startX, startY, endX, endY, LTGREEN, 1, window);
 	}
 
 	TechnoClass::Draw_It(x, y, window);
@@ -1812,6 +1829,10 @@ void BuildingClass::Active_Click_With(ActionType action, ObjectClass * object)
 	if (action == ACTION_TOGGLE_PRIMARY && Class->Is_Factory()) {
 		OutList.Add(EventClass(EventClass::PRIMARY, TargetClass(this)));
 	}
+
+	if (action == ACTION_MOVE && Can_Have_Rally_Point()) {
+		RallyPoint = object->As_Target();
+	}
 }
 
 
@@ -1842,12 +1863,21 @@ void BuildingClass::Active_Click_With(ActionType action, CELL cell)
 		Player_Assign_Mission(MISSION_ATTACK, ::As_Target(cell));
 	}
 
-	if (action == ACTION_MOVE && *this == STRUCT_CONST) {
-		OutList.Add(EventClass(EventClass::ARCHIVE, TargetClass(this), TargetClass(::As_Target(cell))));
-		OutList.Add(EventClass(EventClass::SELL, TargetClass(this)));
+	if (action == ACTION_MOVE) {
+		if (*this == STRUCT_CONST) {
+			OutList.Add(EventClass(EventClass::ARCHIVE, TargetClass(this), TargetClass(::As_Target(cell))));
+			OutList.Add(EventClass(EventClass::SELL, TargetClass(this)));
 
-		COORDINATE coord = Map.Pixel_To_Coord(Get_Mouse_X(), Get_Mouse_Y());
-		OutList.Add(EventClass(ANIM_MOVE_FLASH, PlayerPtr->Class->House, coord));
+			COORDINATE coord = Map.Pixel_To_Coord(Get_Mouse_X(), Get_Mouse_Y());
+			OutList.Add(EventClass(ANIM_MOVE_FLASH, PlayerPtr->Class->House, coord));
+		}
+		else if (Can_Have_Rally_Point()) {
+			// TODO a proper, multiplayer-compatible way would
+			// be adding a new event to set the rally point
+			// (or modifying the handling of MEGAMISSION)
+			RallyPoint = ::As_Target(cell);
+			Map.Flag_To_Redraw(true);
+		}
 	}
 }
 
@@ -2877,7 +2907,7 @@ ActionType BuildingClass::What_Action(CELL cell) const
 
 	ActionType action = TechnoClass::What_Action(cell);
 
-	if (action == ACTION_MOVE && (*this != STRUCT_CONST || !Is_MCV_Deploy())) {
+	if (action == ACTION_MOVE && !Can_Have_Rally_Point() && (*this != STRUCT_CONST || !Is_MCV_Deploy())) {
 		action = ACTION_NONE;
 	}
 
@@ -3396,7 +3426,7 @@ MoveType BuildingClass::Can_Enter_Cell(CELL cell, FacingType) const
 	assert(Buildings.ID(this) == ID);
 	assert(IsActive);
 
-	if (*this == STRUCT_CONST && IsDown) {
+	if (Can_Have_Rally_Point() && *this == STRUCT_CONST && IsDown) {
 		return(Map[cell].Is_Clear_To_Build(Class->Speed) ? MOVE_OK : MOVE_NO);
 	}
 
@@ -5170,7 +5200,7 @@ bool BuildingClass::Can_Player_Move(void) const
 	assert(Buildings.ID(this) == ID);
 	assert(IsActive);
 
-	return(*this == STRUCT_CONST && (Mission == MISSION_GUARD) && Special.IsMCVDeploy);
+	return Can_Have_Rally_Point() || (*this == STRUCT_CONST && (Mission == MISSION_GUARD) && Special.IsMCVDeploy);
 }
 
 
@@ -6051,4 +6081,39 @@ unsigned BuildingClass::Spied_By() const
 	}
 
 	return spiedby;
+}
+
+// Rampastring 20200608
+bool BuildingClass::Can_Have_Rally_Point() const 
+{
+	switch (Class->ToBuild) 
+	{
+		case RTTI_UNITTYPE:
+		case RTTI_INFANTRYTYPE:
+		case RTTI_VESSELTYPE:
+			return true;
+		default:
+			return false;
+	}
+}
+
+// Code from cfehunter
+void BuildingClass::Set_Unselected_By_Player(HouseClass* player)
+{
+	TechnoClass::Set_Unselected_By_Player(player);
+	if (Can_Have_Rally_Point() && RallyPoint)
+	{
+		Map.Flag_To_Redraw(true);
+	}
+}
+
+/* 
+ * Returns the rally point as a target
+ * Original code from cfehunter, ported to RA by Rampastring
+ * (additional SpeedType arg for Nearby_Location)
+ */
+TARGET BuildingClass::Target_For_Rally_Point() const
+{
+	return Is_Target_Cell(RallyPoint) ? ::As_Target(Map.Nearby_Location(As_Cell(RallyPoint),
+		Class->ToBuild == RTTI_VESSELTYPE ? SPEED_FLOAT : SPEED_FOOT)) : RallyPoint;
 }

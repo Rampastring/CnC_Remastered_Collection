@@ -208,6 +208,13 @@ class BuildingClass : public TechnoClass
 		*/
 		CDTimerClass<FrameTimerClass> PlacementDelay;
 
+		// Taken from cfehunter's CFE Patch, original comment follows
+		//cfehunter 7th June 2020. Took a lot of digging into the allocation
+		//but it looks like memory is initialised to zeros when allocated from the object pools.
+		//So even though this CELL doesn't exist in older saves, it should be zero initialised.
+		//NOTE: /!\ Stole 2 bytes from the save game padding /!\/
+		TARGET RallyPoint;
+
 		/*---------------------------------------------------------------------
 		**	Constructors, Destructors, and overloaded operators.
 		*/
@@ -346,14 +353,17 @@ class BuildingClass : public TechnoClass
 		bool Save(Pipe & file) const;
 
 		virtual unsigned Spied_By() const;
+		bool Can_Have_Rally_Point() const;
+		virtual void Set_Unselected_By_Player(HouseClass* player) override;
 
 	private:
 		void Drop_Debris(TARGET source = TARGET_NONE);
+		TARGET Target_For_Rally_Point() const;
 
 		/*
 		** Some additional padding in case we need to add data to the class and maintain backwards compatibility for save/load
 		*/
-		unsigned char SaveLoadPadding[32];
+		unsigned char SaveLoadPadding[30];
 
 		static COORDINATE const CenterOffset[BSIZE_COUNT];
 };
