@@ -1,0 +1,29 @@
+.project
+
+# Visual Studio files
+*/[Ee]xported[Oo]bj/
+*.booproj
+*.pidb
+*.suo
+*.svd
+*.user
+*.userprefs
+*.cachefile
+bin/
+obj/
+.vs/
+
+# Compiled files
+Win32/
+
+# OS files
+._*
+.DS_Store*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Icon?
+[Tt]humbs.db
+
+# Dolphin
+.directory
