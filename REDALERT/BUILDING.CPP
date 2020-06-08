@@ -2882,7 +2882,7 @@ ActionType BuildingClass::What_Action(ObjectClass const * object) const
 		action = ACTION_NONE;
 	}
 
-	if (action == ACTION_MOVE) {
+	if (action == ACTION_MOVE && !Can_Have_Rally_Point()) {
 		action = ACTION_NONE;
 	}
 
@@ -3432,8 +3432,13 @@ MoveType BuildingClass::Can_Enter_Cell(CELL cell, FacingType) const
 	assert(Buildings.ID(this) == ID);
 	assert(IsActive);
 
-	if (Can_Have_Rally_Point() && *this == STRUCT_CONST && IsDown) {
+	if (*this == STRUCT_CONST && IsDown) {
 		return(Map[cell].Is_Clear_To_Build(Class->Speed) ? MOVE_OK : MOVE_NO);
+	}
+
+	if (Can_Have_Rally_Point()) {
+		return Map[cell].Is_Clear_To_Move(Class->ToBuild == RTTI_VESSELTYPE ? SPEED_FLOAT : SPEED_FOOT,
+			true, true, -1, MZONE_NORMAL) ? MOVE_OK : MOVE_NO;
 	}
 
 	if (!Debug_Map && ScenarioInit == 0 && Session.Type == GAME_NORMAL && House->IsPlayerControl && !Map[cell].IsMapped) {
