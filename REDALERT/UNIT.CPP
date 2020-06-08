@@ -3489,7 +3489,10 @@ ActionType UnitClass::What_Action(ObjectClass const * object) const
 					if (How_Many() == 0) {
 						action = ACTION_NO_DEPLOY;
 					}
-				} else {
+				} else if (PlayerPtr->IsQueuedMovementToggle){
+					action = ACTION_MOVE;
+				}
+				else {
 					action = ACTION_NONE;
 				}
 #ifdef FIXIT_CSII	//	checked - ajw 9/28/98
