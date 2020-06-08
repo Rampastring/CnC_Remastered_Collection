@@ -2874,12 +2874,20 @@ ActionType BuildingClass::What_Action(ObjectClass const * object) const
 	}
 
 	/*
-	**	Don't allow targeting of SAM sites, even if the CTRL key
-	**	is held down. Also don't allow targeting if the object is too
+	**	Don't allow targeting if the object is too
 	**	far away.
+	**	Rampastring 20200608: allow manual targeting of aircraft with SAM sites and AA guns
 	*/
-	if (action == ACTION_ATTACK && (*this == STRUCT_SAM || *this == STRUCT_AAGUN || !In_Range(object, 0))) {
-		action = ACTION_NONE;
+	if (action == ACTION_ATTACK) {
+		if (!In_Range(object, 0)) {
+			action = ACTION_NONE;
+		}
+
+		if (Class->PrimaryWeapon != NULL && !Class->PrimaryWeapon->Bullet->IsAntiGround &&
+			object->What_Am_I() != RTTI_AIRCRAFT) 
+		{
+			action = ACTION_NONE;
+		}
 	}
 
 	if (action == ACTION_MOVE && !Can_Have_Rally_Point()) {
