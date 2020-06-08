@@ -2085,7 +2085,13 @@ int BuildingClass::Exit_Object(TechnoClass * base)
 				case STRUCT_TENT:
 				case STRUCT_KENNEL:
 
-					cell = Find_Exit_Cell(base);
+					if (Can_Have_Rally_Point() && RallyPoint) {
+						cell = Map.Nearby_Location(As_Cell(RallyPoint), SPEED_FOOT);
+					}
+					else {
+						cell = Find_Exit_Cell(base);
+					}
+					
 					if (cell != 0) {
 						DirType	dir = Direction(cell);
 						COORDINATE		start = Exit_Coord();
