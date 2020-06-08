@@ -3489,7 +3489,7 @@ ActionType UnitClass::What_Action(ObjectClass const * object) const
 					if (How_Many() == 0) {
 						action = ACTION_NO_DEPLOY;
 					}
-				} else if (PlayerPtr->IsQueuedMovementToggle){
+				} else if (PlayerPtr->IsQueuedMovementToggle) {
 					action = ACTION_MOVE;
 				}
 				else {

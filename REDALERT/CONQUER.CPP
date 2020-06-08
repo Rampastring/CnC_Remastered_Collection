@@ -669,7 +669,7 @@ void Keyboard_Process(KeyNumType & input)
 			for (index = 0; index < CurrentObject.Count(); index++) {
 				ObjectClass const * tech = CurrentObject[index];
 
-				if (tech != NULL && (tech->Can_Player_Move() || (tech->Can_Player_Fire() && tech->What_Am_I() != RTTI_BUILDING))) {
+				if (tech != NULL && (tech->Can_Player_Move() || tech->Can_Player_Fire())) {
 					OutList.Add(EventClass(EventClass::IDLE, TargetClass(tech)));
 				}
 			}

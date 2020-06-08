@@ -817,10 +817,11 @@ void EventClass::Execute(void)
 
 		/*
 		**	Request that the unit/infantry/aircraft go into idle mode.
+		**	Rampastring 20200608: now works for buildings as well
 		*/
 		case IDLE:
 			techno = Data.Target.Whom.As_Techno();
-			if (techno != NULL && techno->IsActive && !techno->IsInLimbo && !techno->IsTethered && techno->What_Am_I() != RTTI_BUILDING) {
+			if (techno != NULL && techno->IsActive && !techno->IsInLimbo && !techno->IsTethered) {
 				techno->Transmit_Message(RADIO_OVER_OUT);
 				techno->Assign_Destination(TARGET_NONE);
 				techno->Assign_Target(TARGET_NONE);
