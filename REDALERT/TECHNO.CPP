@@ -3657,8 +3657,9 @@ ActionType TechnoClass::What_Action(CELL cell) const
 
 	/*
 	**	Disable recognizing the <CTRL> key forced fire option when dealing with buildings.
+	**	Rampastring 20200608: enable it
 	*/
-	if (What_Am_I() == RTTI_BUILDING) ctrldown = false;
+	// if (What_Am_I() == RTTI_BUILDING) ctrldown = false;
 
 	/*
 	**	Disable recognizing the <CTRL> key forced fire option when dealing with submarines.
