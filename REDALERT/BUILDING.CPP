@@ -2019,7 +2019,14 @@ int BuildingClass::Exit_Object(TechnoClass * base)
 					ScenarioInit++;
 					cell = Find_Exit_Cell(base);
 					if (cell != 0 && base->Unlimbo(Cell_Coord(cell), Direction(Cell_Coord(cell)))) {
-						base->Assign_Mission(MISSION_GUARD);
+						if (Can_Have_Rally_Point() && RallyPoint) {
+							cell = Map.Nearby_Location(As_Cell(RallyPoint), SPEED_FLOAT);
+							base->Assign_Mission(MISSION_MOVE);
+							base->Assign_Destination(::As_Target(cell));
+						}
+						else {
+							base->Assign_Mission(MISSION_GUARD);
+						}
 						ScenarioInit--;
 						return(2);
 					}
