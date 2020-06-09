@@ -2224,34 +2224,53 @@ bool UnitClass::Goto_Tiberium(int rad)
 			return(true);
 		} else {
 
+			int closestDistance = SHRT_MAX;
+			CELL closestCell = SHRT_MAX;
+			CELL lastDockingBayCell = center;
+			if (LastDockingBayCoord) {
+				lastDockingBayCell = Coord_Cell(LastDockingBayCoord);
+			}
+
 			/*
 			**	Perform a ring search outward from the center.
+			**	Rampastring: Always try to harvest from the cell that's closest
+			**	to our refinery.
 			*/
 			for (int radius = 1; radius < rad; radius++) {
+				int distance = -1;
 				for (int x = -radius; x <= radius; x++) {
-					CELL cell = center;
-					if (Tiberium_Check(cell, x, -radius)) {
-						Assign_Destination(::As_Target(cell));
-						return(false);
+					CELL cell = XY_Cell(Cell_X(center) + x, Cell_Y(center) - radius);
+					distance = ::Distance(lastDockingBayCell, cell);
+					if (distance < closestDistance && Tiberium_Check(cell, 0, 0)) {
+						closestDistance = distance;
+						closestCell = cell;
 					}
 
-					cell = center;
-					if (Tiberium_Check(cell, x, +radius)) {
-						Assign_Destination(::As_Target(cell));
-						return(false);
+					cell = XY_Cell(Cell_X(center) + x, Cell_Y(center) + radius);
+					distance = ::Distance(lastDockingBayCell, cell);
+					if (distance < closestDistance && Tiberium_Check(cell, 0, 0)) {
+						closestDistance = distance;
+						closestCell = cell;
 					}
 
-					cell = center;
-					if (Tiberium_Check(cell, -radius, x)) {
-						Assign_Destination(::As_Target(cell));
-						return(false);
+					cell = XY_Cell(Cell_X(center) - radius, Cell_Y(center) + x);
+					distance = ::Distance(lastDockingBayCell, cell);
+					if (distance < closestDistance && Tiberium_Check(cell, 0, 0)) {
+						closestDistance = distance;
+						closestCell = cell;
 					}
 
-					cell = center;
-					if (Tiberium_Check(cell, +radius, x)) {
-						Assign_Destination(::As_Target(cell));
-						return(false);
+					cell = XY_Cell(Cell_X(center) + radius, Cell_Y(center) + x);
+					distance = ::Distance(lastDockingBayCell, cell);
+					if (distance < closestDistance && Tiberium_Check(cell, 0, 0)) {
+						closestDistance = distance;
+						closestCell = cell;
 					}
+				}
+
+				if (closestDistance < SHRT_MAX) {
+					Assign_Destination(::As_Target(closestCell));
+					return(false);
 				}
 			}
 		}
@@ -2259,7 +2278,6 @@ bool UnitClass::Goto_Tiberium(int rad)
 
 	return(false);
 }
-
 
 /***********************************************************************************************
  * UnitClass::Harvesting -- Harvests tiberium at the current location.                         *
@@ -2906,6 +2924,7 @@ int UnitClass::Mission_Harvest(void)
 				*/
 				if (nearest != NULL && Transmit_Message(RADIO_HELLO, nearest) == RADIO_ROGER) {
 					Status = HEADINGHOME;
+					LastDockingBayCoord = nearest->Center_Coord();
 					if (nearest->House == PlayerPtr && (PlayerPtr->Capacity - PlayerPtr->Tiberium) < 300 && PlayerPtr->Capacity > 500 && (PlayerPtr->ActiveBScan & (STRUCTF_REFINERY | STRUCTF_CONST))) {
 						Speak(VOX_NEED_MO_CAPACITY);
 					}
@@ -2915,6 +2934,7 @@ int UnitClass::Mission_Harvest(void)
 					ScenarioInit--;
 					if (nearest != NULL) {
 						Assign_Destination(::As_Target(Nearby_Location(nearest)));
+						LastDockingBayCoord = nearest->Center_Coord();
 					}
 				}
 			}

@@ -2604,17 +2604,28 @@ void BuildingClass::Grand_Opening(bool captured)
 				**	Try to place down the harvesters. If it could not be placed, then try
 				**	to place it in a nearby location.
 				*/
-				if (!unit->Unlimbo(Cell_Coord(cell), DIR_W)) {
+				bool success = unit->Unlimbo(Cell_Coord(cell), DIR_W);
+				if (!success) {
 					cell = unit->Nearby_Location(this);
+					success = unit->Unlimbo(Cell_Coord(cell), DIR_SW);
 
 					/*
 					**	If the harvester could still not be placed, then refund the money
 					**	to the owner and then bail.
 					*/
-					if (!unit->Unlimbo(Cell_Coord(cell), DIR_SW)) {
+					if (!success) {
 						House->Refund_Money(unit->Class->Cost_Of());
 						delete unit;
 					}
+				}
+
+				/*
+				**	Rampastring:
+				**	If we placed the harvester successfully, then mark this
+				**	refinery as its last docking bay.
+				*/
+				if (success) {
+					unit->LastDockingBayCoord = Center_Coord();
 				}
 			} else {
 

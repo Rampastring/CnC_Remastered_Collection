@@ -112,9 +112,16 @@ class UnitClass :	public DriveClass
 		FacingClass SecondaryFacing;
 
 		/*
+		**	The coodinate of the last docking bay for this unit.
+		**	The unit should prefer docking with it or a nearby
+		**	docking bay when seeking for a building to dock with.
+		*/
+		COORDINATE LastDockingBayCoord;
+
+		/*
 		** Some additional padding in case we need to add data to the class and maintain backwards compatibility for save/load
 		*/
-		unsigned char SaveLoadPadding[32];
+		unsigned char SaveLoadPadding[28];
 
 		/*---------------------------------------------------------------------
 		**	Constructors, Destructors, and overloaded operators.
