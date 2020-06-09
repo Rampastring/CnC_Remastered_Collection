@@ -821,7 +821,8 @@ void EventClass::Execute(void)
 		*/
 		case IDLE:
 			techno = Data.Target.Whom.As_Techno();
-			if (techno != NULL && techno->IsActive && !techno->IsInLimbo && !techno->IsTethered) {
+			if (techno != NULL && techno->IsActive && !techno->IsInLimbo && !techno->IsTethered &&
+				(techno->What_Am_I() != RTTI_BUILDING || techno->Mission != MISSION_DECONSTRUCTION)) {
 				techno->Transmit_Message(RADIO_OVER_OUT);
 				techno->Assign_Destination(TARGET_NONE);
 				techno->Assign_Target(TARGET_NONE);
