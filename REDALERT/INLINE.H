@@ -1062,5 +1062,35 @@ inline int Distance(int x1, int y1, int x2, int y2)
 }
 
 
+/***********************************************************************************************
+ * Distance -- Determines the cell distance between two cells.                                 *
+ *                                                                                             *
+ *    Use this routine to determine the distance between the two cells specified. The distance *
+ *    is returned in cells.                                                                    *
+ *                                                                                             *
+ * INPUT:   cell1, cell2   -- The two cells to determine the distance between.                 *
+ *                                                                                             *
+ * OUTPUT:  Returns with the distance between the two cells in units of cell size.             *
+ *                                                                                             *
+ * WARNINGS:   none                                                                            *
+ *                                                                                             *
+ * HISTORY:                                                                                    *
+ *   12/23/1994 JLB : Created.                                                                 *
+ *   06/09/2020 Rampastring: Copied to Red Alert.                                              *
+ *=============================================================================================*/
+inline int Distance(CELL coord1, CELL coord2)
+{
+	int	diff1, diff2;
+
+	diff1 = Cell_Y(coord1) - Cell_Y(coord2);
+	if (diff1 < 0) diff1 = -diff1;
+	diff2 = Cell_X(coord1) - Cell_X(coord2);
+	if (diff2 < 0) diff2 = -diff2;
+	if (diff1 > diff2) {
+		return(diff1 + (diff2 >> 1));
+	}
+	return(diff2 + (diff1 >> 1));
+}
+
 #endif
 

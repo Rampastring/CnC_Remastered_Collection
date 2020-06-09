@@ -48,7 +48,13 @@
  *   Set_Path_Overlap -- Sets the overlap bit for given cell                                   *
  * - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
+#define _HAS_EXCEPTIONS 0
+
+#include <algorithm>
+#include <unordered_map>
+#include <vector>
 #include	"function.h"
+
 //#include	<string.h>
 
 /*
@@ -410,6 +416,218 @@ bool FootClass::Register_Cell(PathType * path, CELL cell, FacingType dir, int co
 	return(true);
 }
 
+/* *******************************
+ * Start of cfehunter's AStar code
+ * *******************************/
+
+int Manhattan_Cell_Distance_Estimate(const CELL source, const CELL dest)
+{
+	return abs(Cell_X(dest) - Cell_X(source)) + abs(Cell_Y(dest) - Cell_Y(source));
+}
+
+float Euclidian_Cell_Distance_Estimate_Sqrd(const CELL source, const CELL dest)
+{
+	const float x = abs(Cell_X(dest) - Cell_X(source));
+	const float y = abs(Cell_Y(dest) - Cell_Y(source));
+	return abs(x * x + y * y);
+}
+
+float Euclidian_Cell_Distance_Estimate(const CELL source, const CELL dest)
+{
+	return sqrtf(Euclidian_Cell_Distance_Estimate_Sqrd(source, dest));
+}
+
+void Add_Cell_To_Overlap(const CELL cell, unsigned long* const Overlap)
+{
+	Overlap[cell >> 5] |= (1 << ((cell & 31) - 1));
+}
+
+void Remove_Cell_From_Overlap(const CELL cell, unsigned long* const Overlap)
+{
+	Overlap[cell >> 5] &= ~(1 << ((cell & 31) - 1));
+}
+
+bool Is_Cell_In_Overlap(const CELL cell, const unsigned long* const Overlap)
+{
+	return Overlap[cell >> 5] & (1 << ((cell & 31) - 1));
+}
+
+CELL FootClass::Find_Passable_Position_Near(const CELL target, const int maxRadius, const MoveType threshhold, const int threat)
+{
+	if (Passable_Cell(target, FACING_NONE, threat, threshhold)) {
+		return target;
+	}
+
+	const int targetX = Cell_X(target);
+	const int targetY = Cell_Y(target);
+
+	const auto validate_cell = [this, target, threat, threshhold](const CELL cell)
+	{
+		return Map.In_Radar(cell) && Passable_Cell(target, FACING_NONE, threat, threshhold);
+	};
+
+	for (int curDistance = 1; curDistance <= maxRadius; ++curDistance)
+	{
+		const int left = targetX - curDistance;
+		const int right = targetX + curDistance;
+		const int top = targetY - curDistance;
+		const int bottom = targetY + curDistance;
+
+		//Test top row
+		for (int x = left; x <= right; ++x)
+		{
+			const CELL currentCell = XY_Cell(x, top);
+			if (validate_cell(currentCell))
+				return currentCell;
+		}
+
+		//Test bottom row
+		for (int x = left; x <= right; ++x)
+		{
+			const CELL currentCell = XY_Cell(x, bottom);
+			if (validate_cell(currentCell))
+				return currentCell;
+		}
+
+		//Test left column
+		for (int y = top + 1; y < bottom; ++y)
+		{
+			const CELL currentCell = XY_Cell(y, left);
+			if (validate_cell(currentCell))
+				return currentCell;
+		}
+
+		//Test the right column
+		for (int y = top + 1; y < bottom; ++y)
+		{
+			const CELL currentCell = XY_Cell(y, right);
+			if (validate_cell(currentCell))
+				return currentCell;
+		}
+	}
+
+	return 0;
+}
+
+bool FootClass::Find_Path_AStar(PathType& resultPath, const CELL source, CELL dest, const int maxLen, const MoveType threshhold, const int threat)
+{
+	struct AStarCell {
+		AStarCell* prev = nullptr;
+		CELL       position = 0;
+		int        cell_distance_from_start = 0;
+		int        cost_from_start = 0;
+		float      estimated_cost_to_end = 0;
+	};
+
+	const auto inverse_node_sort = [](const AStarCell* const lhs, const AStarCell* const rhs) {
+		static constexpr float flt_epsilon = std::numeric_limits<float>::epsilon();
+		const float lhs_cost = lhs->cost_from_start + lhs->estimated_cost_to_end;
+		const float rhs_cost = rhs->cost_from_start + rhs->estimated_cost_to_end;
+
+		return lhs_cost > rhs_cost;
+	};
+
+	// General error case early exits
+	if (maxLen <= 0 || source == dest) {
+		return false;
+	}
+
+	// Target is impassable, try to account for that by finding a position nearby, or staying still if already close
+	if (!Passable_Cell(dest, FACING_NONE, threat, threshhold)) {
+		static const int impassableCloseEnough = 3;
+		const int distanceToDest = ::Distance(source, dest);
+		if (distanceToDest > impassableCloseEnough) {
+			const CELL nearbyDest = Find_Passable_Position_Near(dest, impassableCloseEnough, threshhold, threat);
+
+			// Failed to find a passable position at or near the target or nearby position is further away or equidistant to our current position, so just stay put
+			if (nearbyDest == 0 || ::Distance(dest, nearbyDest) >= distanceToDest) {
+				return false;
+			}
+		}
+		else {
+			return false;
+		}
+	}
+
+	std::unordered_map<CELL, AStarCell> visited_cells;
+	std::vector<AStarCell*> open_list;
+
+	// Add the source cell to the open list
+	open_list.push_back(&visited_cells.emplace(source, AStarCell()).first->second);
+	open_list.back()->position = source;
+
+	AStarCell* dest_result = nullptr;
+
+	while (!open_list.empty()) {
+		AStarCell& prev_cell = *open_list.back();
+		open_list.pop_back();
+
+		if (prev_cell.position == dest) {
+			dest_result = &prev_cell;
+			break;
+		}
+
+		for (FacingType facing = FACING_FIRST; facing < FACING_COUNT; ++facing) {
+			const CELL adjacent_cell_id = Adjacent_Cell(prev_cell.position, facing);
+
+			//Passable cell returns 0 if the object can't enter the cell from this direction
+			int cell_cost = Passable_Cell(adjacent_cell_id, facing, threat, threshhold);
+			if (cell_cost)
+			{
+				cell_cost += prev_cell.cost_from_start;
+				auto emplace_result = visited_cells.try_emplace(adjacent_cell_id);
+				AStarCell& current_cell = emplace_result.first->second;
+				if (emplace_result.second || cell_cost < current_cell.cost_from_start)
+				{
+					current_cell.position = adjacent_cell_id;
+					current_cell.prev = &prev_cell;
+					current_cell.cell_distance_from_start = prev_cell.cell_distance_from_start + 1;
+					current_cell.cost_from_start = cell_cost;
+					current_cell.estimated_cost_to_end = Euclidian_Cell_Distance_Estimate(adjacent_cell_id, dest);
+
+					//Insert the new node before the first item that is *NOT* greater than it. Which should leave the list with the lowest cost nodes at the back.
+					open_list.insert(std::lower_bound(open_list.begin(), open_list.end(), &current_cell, inverse_node_sort), &current_cell);
+				}
+			}
+		}
+
+	}
+
+	if (dest_result) {
+		//Cost is used for comparing paths with different threat thesholds, so use the overall cost regardless of truncation
+		resultPath.Cost = dest_result->cost_from_start;
+
+		//Scrub back to the max path length to store
+		while (dest_result->prev && dest_result->cell_distance_from_start > maxLen) {
+			dest_result = dest_result->prev;
+		}
+
+		resultPath.Command[dest_result->cell_distance_from_start] = END;
+		resultPath.Length = dest_result->cell_distance_from_start;
+
+		for (; dest_result->prev != nullptr; dest_result = dest_result->prev) {
+			const AStarCell& prev_node = *dest_result->prev;
+			resultPath.Command[prev_node.cell_distance_from_start] = CELL_FACING(prev_node.position, dest_result->position);
+		}
+
+		Optimize_Moves(&resultPath, threshhold);
+		// RA has no Debug_Draw_Path implemented
+		// if (Debug_Flag || Debug_Find_Path)
+		// {
+		// 	  Debug_Draw_Path(&resultPath);
+		// }
+
+		return true;
+	}
+
+	return false;
+}
+
+/* *******************************
+ * End of cfehunter's AStar code
+ * (aside from edits to Find_Path)
+ * *******************************/
+
 
 /***********************************************************************************************
  * Find_Path -- Find a path from point a to point b.                                           *
@@ -487,6 +705,39 @@ PathType * FootClass::Find_Path(CELL dest, FacingType * final_moves, int maxlen,
 	path.LastFixup		= -1;
 
 	memset(path.Overlap, 0, sizeof(MainOverlap));
+
+
+	// ******************************
+	// AStar pathfinding by cfehunter
+	// ******************************
+	int asThreat = threat;
+	bool result = false;
+	do
+	{
+		result = Find_Path_AStar(path, source, dest, maxlen, threshhold, threat);
+
+		if (!result && asThreat != -1) {
+			switch (++threat_stage) {
+			case 0:
+				asThreat = unit_threat >> 1;
+				break;
+
+			case 1:
+				asThreat += unit_threat;
+				break;
+
+			case 2:
+				asThreat = -1;
+				break;
+			}
+		}
+	} while (!result && asThreat != -1);
+
+	if (result)
+	{
+		return &path;
+	}
+	// End of AStar pathfinding
 
 	/*
 	** Clear the over lap list and then make sure that our starting position is marked

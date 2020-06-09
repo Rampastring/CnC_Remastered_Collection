@@ -369,6 +369,8 @@ class FootClass :	public TechnoClass
 		bool Follow_Edge(CELL start, CELL target, PathType *path, FacingType search, FacingType olddir, int threat, int threat_stage, int max_cells, MoveType threshhold);
 		bool Register_Cell(PathType *path, CELL cell, FacingType dir, int cost, MoveType threshhold);
 		bool Unravel_Loop(PathType *path, CELL &cell, FacingType &dir, int sx, int sy, int dx, int dy, MoveType threshhold);
+		CELL Find_Passable_Position_Near(const CELL target, const int maxRadius, const MoveType threshhold, const int threat);
+		bool Find_Path_AStar(PathType& resultPath, const CELL source, CELL dest, const int maxLen, const MoveType threshhold, const int threat);
 
 		/*
 		**	This is the coordinate that the unit is heading to
