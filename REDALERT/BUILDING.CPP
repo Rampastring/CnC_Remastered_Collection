@@ -519,7 +519,6 @@ void BuildingClass::Draw_It(int x, int y, WindowNumberType window) const
 		Map.Coord_To_Pixel(Coord_Add(Coord, Class->ExitCoordinate), startX, startY);
 		Map.Coord_To_Pixel(As_Coord(RallyPoint), endX, endY);
 
-		// RA FUNCTION.H didn't have CC_Draw_Line, so maybe it doesn't work
 		CC_Draw_Line(startX, startY, endX, endY, LTGREEN, 1, window);
 	}
 
@@ -4320,7 +4319,10 @@ int BuildingClass::Mission_Repair(void)
 							// if (IsOwnedByPlayer) Speak(VOX_UNIT_REPAIRED);
 							if (IsOwnedByPlayer) Speak(VOX_UNIT_REPAIRED, House);
 
-//							Transmit_Message(RADIO_RUN_AWAY);
+							// Rampastring 06.10.2020: Tell repaired unit to move away
+							Transmit_Message(RADIO_RUN_AWAY);
+							Transmit_Message(RADIO_OVER_OUT);
+
 							Begin_Mode(BSTATE_IDLE);
 							Status = IDLE;
 							break;
