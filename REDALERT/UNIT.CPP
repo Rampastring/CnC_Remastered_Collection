@@ -2958,7 +2958,9 @@ int UnitClass::Mission_Harvest(void)
 				if (House->ActiveBScan & STRUCTF_REPAIR) {
 					Assign_Mission(MISSION_REPAIR);
 				} else {
-					Assign_Mission(MISSION_HUNT);
+					// Wait for ore regrowth, attempt to find more ore in a minute
+					Status = LOOKING;
+					return TICKS_PER_MINUTE;
 				}
 			}
 			Assign_Mission(MISSION_GUARD);
