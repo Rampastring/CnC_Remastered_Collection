@@ -269,7 +269,8 @@ RulesClass::RulesClass(void) :
 	TiberiumShortScan(0x0600),
 	TiberiumLongScan(0x2000),
 	HealthBarDisplayMode(HB_SELECTED),
-	ResourceBarDisplayMode(RB_SELECTED)
+	ResourceBarDisplayMode(RB_SELECTED),
+	MaxFreeRefineryDistanceBias(10)
 {
 #ifdef FIXIT_CSII	//	checked - ajw 9/28/98
 	NewUnitsEnabled = SecretUnitsEnabled = 0;
@@ -509,6 +510,8 @@ bool RulesClass::General(CCINIClass & ini)
 		ChronalVortex.Set_Range(VortexRange / CELL_LEPTON_W);
 		ChronalVortex.Set_Speed(VortexSpeed);
 		ChronalVortex.Set_Damage(VortexDamage);
+
+		MaxFreeRefineryDistanceBias = ini.Get_Int(GENERAL, "MaxFreeRefineryDistanceBias", MaxFreeRefineryDistanceBias);
 
 		//ChronalVortex.Set_Range ( ini.Get_Int (GENERAL, "VortexRange", ChronalVortex.Get_Range() ) );
 		//ChronalVortex.Set_Speed ( ini.Get_Int (GENERAL, "VortexSpeed", ChronalVortex.Get_Speed() ) );

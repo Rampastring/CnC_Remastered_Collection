@@ -2917,24 +2917,26 @@ int UnitClass::Mission_Harvest(void)
 				**	Find nearby refinery and head to it?
 				*/
 				BuildingClass * nearest = Find_Docking_Bay(STRUCT_REFINERY, false);
+				ScenarioInit++;
+				BuildingClass * possiblyOccupied = Find_Docking_Bay(STRUCT_REFINERY, false);
+				ScenarioInit--;
 
 				/*
 				**	Since the refinery said it was ok to load, establish radio
 				**	contact with the refinery and then await docking orders.
 				*/
-				if (nearest != NULL && Transmit_Message(RADIO_HELLO, nearest) == RADIO_ROGER) {
+				if (nearest != NULL &&
+					(nearest == possiblyOccupied || ::Distance(Coord_Cell(nearest->Center_Coord()), Coord_Cell(possiblyOccupied->Center_Coord())) < Rule.MaxFreeRefineryDistanceBias)
+					&& Transmit_Message(RADIO_HELLO, nearest) == RADIO_ROGER) {
 					Status = HEADINGHOME;
 					LastDockingBayCoord = nearest->Center_Coord();
 					if (nearest->House == PlayerPtr && (PlayerPtr->Capacity - PlayerPtr->Tiberium) < 300 && PlayerPtr->Capacity > 500 && (PlayerPtr->ActiveBScan & (STRUCTF_REFINERY | STRUCTF_CONST))) {
 						Speak(VOX_NEED_MO_CAPACITY);
 					}
 				} else {
-					ScenarioInit++;
-					nearest = Find_Docking_Bay(STRUCT_REFINERY, false);
-					ScenarioInit--;
-					if (nearest != NULL) {
-						Assign_Destination(::As_Target(Nearby_Location(nearest)));
-						LastDockingBayCoord = nearest->Center_Coord();
+					if (possiblyOccupied != NULL) {
+						Assign_Destination(::As_Target(Nearby_Location(possiblyOccupied)));
+						LastDockingBayCoord = possiblyOccupied->Center_Coord();
 					}
 				}
 			}
@@ -3737,6 +3739,54 @@ int UnitClass::Mission_Move(void)
 	}
 
 	return(DriveClass::Mission_Move());
+}
+
+/*
+ * Overridden by Rampastring.
+ * Makes harvesters not go idle if their refinery is destroyed.
+ */
+int UnitClass::Mission_Enter(void) 
+{
+	assert(Units.ID(this) == ID);
+	assert(IsActive);
+
+	if (!Class->IsToHarvest) {
+		return FootClass::Mission_Enter();
+	}
+
+	/*
+	**	Find out who to coordinate with. If in radio contact, then this the transporter is
+	**	defined. If not in radio contact, then try the archive target value to see if that
+	**	is suitable.
+	*/
+	TechnoClass * contact = Contact_With_Whom();
+	if (contact == NULL) {
+		contact = As_Techno(ArchiveTarget);
+	}
+
+	/*
+	**	If in contact, then let the refinery handle the movement coordination.
+	*/
+	if (contact != NULL) {
+		/*
+		**	If the refinery says to "bug off", then abort the enter mission
+		**	and search for a new refinery.
+		*/
+		if (Transmit_Message(RADIO_DOCKING, contact) != RADIO_ROGER && !IsTethered) {
+			Transmit_Message(RADIO_OVER_OUT);
+			Assign_Mission(MISSION_HARVEST);
+			Status = 2; // TODO: FINDHOME
+		}
+	}
+	else {
+		/*
+		**	There is no refinery to enter, try again after a delay
+		*/
+		Assign_Mission(MISSION_HARVEST);
+		Status = 2; // TODO: FINDHOME
+	}
+
+	return(MissionControl[Mission].Normal_Delay() + Random_Pick(0, 2));
 }
 
 

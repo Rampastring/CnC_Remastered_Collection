@@ -890,6 +890,16 @@ class RulesClass {
 			RB_SELECTED = 0,
 			RB_ALWAYS,
 		} ResourceBarDisplayMode;
+
+		/*
+		** When looking for refineries, the harvester will prefer
+		** a distant free refinery over a closer occupied refinery only
+		** if their distance difference in cells is smaller than this.
+		*/
+		int MaxFreeRefineryDistanceBias;
+
+		// Some additional space for save game compatibility.
+		unsigned char SaveLoadPadding[60];
 };
 
 

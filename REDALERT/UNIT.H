@@ -219,6 +219,7 @@ class UnitClass :	public DriveClass
 		virtual int Mission_Hunt(void);
 		virtual int Mission_Repair(void);
 		virtual int Mission_Move(void);
+		virtual int Mission_Enter(void);
 		void Rotation_AI(void);
 		void Firing_AI(void);
 		void Reload_AI(void);
