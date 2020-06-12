@@ -363,7 +363,7 @@ RadioMessageType BuildingClass::Receive_Message(RadioClass * from, RadioMessageT
 
 		/*
 		**	This message is received when an object has completely left
-		** building. Sometimes special cleanup action is required when
+		**	building. Sometimes special cleanup action is required when
 		**	this event occurs.
 		*/
 		case RADIO_UNLOADED:
@@ -2018,10 +2018,9 @@ int BuildingClass::Exit_Object(TechnoClass * base)
 					ScenarioInit++;
 					cell = Find_Exit_Cell(base);
 					if (cell != 0 && base->Unlimbo(Cell_Coord(cell), Direction(Cell_Coord(cell)))) {
-						if (Can_Have_Rally_Point() && RallyPoint) {
-							cell = Map.Nearby_Location(As_Cell(RallyPoint), SPEED_FLOAT);
+						if (Can_Have_Rally_Point() && Target_Legal(RallyPoint)) {
 							base->Assign_Mission(MISSION_MOVE);
-							base->Assign_Destination(::As_Target(cell));
+							base->Assign_Destination(Target_For_Rally_Point());
 						}
 						else {
 							base->Assign_Mission(MISSION_GUARD);
@@ -2091,7 +2090,7 @@ int BuildingClass::Exit_Object(TechnoClass * base)
 				case STRUCT_TENT:
 				case STRUCT_KENNEL:
 
-					if (Can_Have_Rally_Point() && RallyPoint) {
+					if (Can_Have_Rally_Point() && Target_Legal(RallyPoint)) {
 						cell = Map.Nearby_Location(As_Cell(RallyPoint), SPEED_FOOT);
 					}
 					else {
@@ -4320,8 +4319,16 @@ int BuildingClass::Mission_Repair(void)
 							if (IsOwnedByPlayer) Speak(VOX_UNIT_REPAIRED, House);
 
 							// Rampastring 06.10.2020: Tell repaired unit to move away
-							Transmit_Message(RADIO_RUN_AWAY);
-							Transmit_Message(RADIO_OVER_OUT);
+							if (Can_Have_Rally_Point() && Target_Legal(RallyPoint)) {
+								TechnoClass* contact = Contact_With_Whom();
+								
+								contact->Assign_Mission(MISSION_MOVE);
+								contact->Assign_Destination(Target_For_Rally_Point());
+							}
+							else {
+								Transmit_Message(RADIO_RUN_AWAY);
+								Transmit_Message(RADIO_OVER_OUT);
+							}
 
 							Begin_Mode(BSTATE_IDLE);
 							Status = IDLE;
@@ -6125,6 +6132,11 @@ unsigned BuildingClass::Spied_By() const
 // Rampastring 20200608
 bool BuildingClass::Can_Have_Rally_Point() const 
 {
+	// TODO check attribute for TS-like heap initialization
+	if (*this == STRUCT_REPAIR) {
+		return true;
+	}	
+
 	switch (Class->ToBuild) 
 	{
 		case RTTI_UNITTYPE:
