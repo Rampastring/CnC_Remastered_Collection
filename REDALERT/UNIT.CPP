@@ -3768,14 +3768,24 @@ int UnitClass::Mission_Enter(void)
 	**	If in contact, then let the refinery handle the movement coordination.
 	*/
 	if (contact != NULL) {
+
+
+
 		/*
-		**	If the refinery says to "bug off", then abort the enter mission
+		**	If the building says to "bug off", then abort the enter mission
 		**	and search for a new refinery.
 		*/
 		if (Transmit_Message(RADIO_DOCKING, contact) != RADIO_ROGER && !IsTethered) {
-			Transmit_Message(RADIO_OVER_OUT);
-			Assign_Mission(MISSION_HARVEST);
-			Status = 2; // TODO: FINDHOME
+			// Are we dealing with a refinery?
+			if (contact->RTTI == RTTI_BUILDING && *((BuildingClass*)contact) == STRUCT_REFINERY) {
+				Transmit_Message(RADIO_OVER_OUT);
+				Assign_Mission(MISSION_HARVEST);
+				Status = 2; // TODO: FINDHOME
+			}
+			else {
+				Transmit_Message(RADIO_OVER_OUT);
+				Enter_Idle_Mode();
+			}
 		}
 	}
 	else {
