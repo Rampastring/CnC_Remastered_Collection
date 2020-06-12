@@ -376,6 +376,13 @@ RadioMessageType BuildingClass::Receive_Message(RadioClass * from, RadioMessageT
 
 			if (Can_Have_Rally_Point() && Target_Legal(RallyPoint)) {
 				Queue_Mission(from->As_Target(), MISSION_MOVE, TARGET_NONE, Target_For_Rally_Point());
+				if (from->What_Am_I() == RTTI_UNIT) {
+					UnitClass* unit = (UnitClass*)from;
+					if (unit->Class->IsToHarvest) {
+						unit->InitHarvest = true;
+					}
+				}
+
 				return RADIO_ROGER;
 			}
 

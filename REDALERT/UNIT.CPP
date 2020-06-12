@@ -307,6 +307,9 @@ UnitClass::UnitClass(UnitType classid, HousesType house) :
 	IsSecondShot = !Class->Is_Two_Shooter();
 	Strength = Class->MaxStrength;
 
+	LastDockingBayCoord = 0;
+	InitHarvest = false;
+
 	/*
 	** Keep count of the number of units created.
 	*/
@@ -1324,7 +1327,7 @@ void UnitClass::Enter_Idle_Mode(bool initial)
 		if (!Is_Weapon_Equipped()) {
 			if (Class->IsToHarvest) {
 				if (!In_Radio_Contact() && Mission != MISSION_HARVEST && MissionQueue != MISSION_HARVEST) {
-					if (initial || !House->IsHuman || Map[Coord].Land_Type() == LAND_TIBERIUM) {
+					if (initial || InitHarvest || !House->IsHuman || Map[Coord].Land_Type() == LAND_TIBERIUM) {
 						order = MISSION_HARVEST;
 					} else {
 						order = MISSION_GUARD;
@@ -2809,6 +2812,8 @@ int UnitClass::Mission_Harvest(void)
 	*/
 	if (!Class->IsToHarvest) return(TICKS_PER_SECOND*30);
 
+	InitHarvest = false;
+
 	/*
 	**	If there are no more refineries, then drop into guard mode.
 	*/
@@ -3768,9 +3773,6 @@ int UnitClass::Mission_Enter(void)
 	**	If in contact, then let the refinery handle the movement coordination.
 	*/
 	if (contact != NULL) {
-
-
-
 		/*
 		**	If the building says to "bug off", then abort the enter mission
 		**	and search for a new refinery.

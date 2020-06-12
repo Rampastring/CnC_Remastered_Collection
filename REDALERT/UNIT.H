@@ -119,9 +119,15 @@ class UnitClass :	public DriveClass
 		COORDINATE LastDockingBayCoord;
 
 		/*
+		**	Determines whether the unit should start harvesting
+		**	once it has finished moving to its rally point.
+		*/
+		bool InitHarvest;
+
+		/*
 		** Some additional padding in case we need to add data to the class and maintain backwards compatibility for save/load
 		*/
-		unsigned char SaveLoadPadding[28];
+		unsigned char SaveLoadPadding[27];
 
 		/*---------------------------------------------------------------------
 		**	Constructors, Destructors, and overloaded operators.
