@@ -173,7 +173,9 @@ RadioMessageType BuildingClass::Receive_Message(RadioClass * from, RadioMessageT
 		case RADIO_CAN_LOAD:
 			TechnoClass::Receive_Message(from, message, param);
 			if (!House->Is_Ally(from)) return(RADIO_STATIC);
-			if (Mission == MISSION_CONSTRUCTION || Mission == MISSION_DECONSTRUCTION || BState == BSTATE_CONSTRUCTION || (!ScenarioInit && In_Radio_Contact() && Contact_With_Whom() != from)) return(RADIO_NEGATIVE);
+			if (Mission == MISSION_CONSTRUCTION || Mission == MISSION_DECONSTRUCTION || BState == BSTATE_CONSTRUCTION) return RADIO_NEGATIVE;
+			if (Class->Type != STRUCT_REFINERY && ((!ScenarioInit && In_Radio_Contact() && Contact_With_Whom() != from))) return RADIO_NEGATIVE;
+
 			switch (Class->Type) {
 				case STRUCT_AIRSTRIP:
 					if (from->What_Am_I() == RTTI_AIRCRAFT && ((AircraftClass const *)from)->Class->IsFixedWing) {
@@ -197,8 +199,27 @@ RadioMessageType BuildingClass::Receive_Message(RadioClass * from, RadioMessageT
 
 				case STRUCT_REFINERY:
 					if (from->What_Am_I() == RTTI_UNIT &&
-						*((UnitClass *)from) == UNIT_HARVESTER &&
-						(ScenarioInit || !Is_Something_Attached())) {
+						((UnitClass *)from)->Class->IsToHarvest) {
+						if (ScenarioInit) {
+							return(RADIO_ROGER);
+						}
+
+						if (Is_Something_Attached()) {
+							return RADIO_NEGATIVE;
+						}
+
+						if (In_Radio_Contact()) {
+							TechnoClass* whom = Contact_With_Whom();
+
+							int oldDistance = ::Distance(::Coord_Cell(Center_Coord()), ::Coord_Cell(whom->Center_Coord()));
+							int newDistance = ::Distance(::Coord_Cell(Center_Coord()), ::Coord_Cell(from->Center_Coord()));
+							if (newDistance + Rule.MinHarvesterQueueJumpDistance < oldDistance) {
+								Transmit_Message(RADIO_OVER_OUT, whom);
+								return RADIO_ROGER;
+							}
+
+							return RADIO_NEGATIVE;
+						}
 
 						return(RADIO_ROGER);
 					}
@@ -314,17 +335,6 @@ RadioMessageType BuildingClass::Receive_Message(RadioClass * from, RadioMessageT
 						from->Scatter(NULL, true, true);
 					}
 				}
-			}
-			return(RADIO_ROGER);
-
-		/*
-		**	If a transport or harvester is requesting permission to head toward, dock
-		**	and load/unload, check to make sure that this is allowed given the current
-		**	state of the building.
-		*/
-		case RADIO_ARE_REFINERY:
-			if (Is_Something_Attached() || In_Radio_Contact() || IsInLimbo || House->Class->House != from->Owner() || (*this != STRUCT_REFINERY/* && *this != STRUCT_REPAIR*/)) {
-				return(RADIO_NEGATIVE);
 			}
 			return(RADIO_ROGER);
 
@@ -4332,7 +4342,7 @@ int BuildingClass::Mission_Repair(void)
 								contact->Assign_Mission(MISSION_MOVE);
 								contact->Assign_Destination(Target_For_Rally_Point());
 							}
-							else {
+							else if (Rule.AutoRepairFacilityKickOut) {
 								Transmit_Message(RADIO_RUN_AWAY);
 								Transmit_Message(RADIO_OVER_OUT);
 							}

@@ -271,7 +271,7 @@ RulesClass::RulesClass(void) :
 	HealthBarDisplayMode(HB_SELECTED),
 	ResourceBarDisplayMode(RB_SELECTED),
 	MaxFreeRefineryDistanceBias(10),
-	MinHarvesterQueueJumpDistance(10),
+	MinHarvesterQueueJumpDistance(7),
 	MaxWallExtensionDistance(4),
 	WallCostMultiplier(3),
 	AutoRepairFacilityKickOut(true)
