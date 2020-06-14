@@ -320,6 +320,10 @@ bool Init_Game(int , char * [])
 	}
 #endif
 
+	if (MoreQoLINI.Load(CCFileClass("MOREQOL.INI"), false)) {
+		Rule.Process(MoreQoLINI);
+	}
+
 	Session.MaxPlayers = Rule.MaxPlayers;
 
 	/*

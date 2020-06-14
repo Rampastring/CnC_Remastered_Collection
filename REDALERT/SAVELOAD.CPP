@@ -963,6 +963,15 @@ bool Load_Game(const char *file_name)
 	Rule.Objects(AftermathINI);
 	Rule.Difficulty(AftermathINI);
 #endif
+	Rule.General(MoreQoLINI);
+	Rule.Recharge(MoreQoLINI);
+	Rule.AI(MoreQoLINI);
+	Rule.Powerups(MoreQoLINI);
+	Rule.Land_Types(MoreQoLINI);
+	Rule.Themes(MoreQoLINI);
+	Rule.IQ(MoreQoLINI);
+	Rule.Objects(MoreQoLINI);
+	Rule.Difficulty(MoreQoLINI);
 
 	/*
 	**	Override any rules values specified in this

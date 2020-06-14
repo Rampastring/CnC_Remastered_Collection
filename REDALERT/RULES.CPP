@@ -270,7 +270,11 @@ RulesClass::RulesClass(void) :
 	TiberiumLongScan(0x2000),
 	HealthBarDisplayMode(HB_SELECTED),
 	ResourceBarDisplayMode(RB_SELECTED),
-	MaxFreeRefineryDistanceBias(10)
+	MaxFreeRefineryDistanceBias(10),
+	MinHarvesterQueueJumpDistance(10),
+	MaxWallExtensionDistance(4),
+	WallCostMultiplier(3),
+	AutoRepairFacilityKickOut(true)
 {
 #ifdef FIXIT_CSII	//	checked - ajw 9/28/98
 	NewUnitsEnabled = SecretUnitsEnabled = 0;
@@ -385,6 +389,7 @@ bool RulesClass::General(CCINIClass & ini)
 	static char const * const GENERAL = "General";
 #ifdef FIXIT_CSII	//	checked - ajw 9/28/98
 	static char const * const AFTERMATH = "Aftermath";
+	static char const * const MOREQOL = "MoreQoL";
 
 	if(ini.Is_Present(AFTERMATH)) {
 //debugprint( "NewUnitsEnabled previously %i\n", NewUnitsEnabled );
@@ -409,6 +414,14 @@ bool RulesClass::General(CCINIClass & ini)
 	}
 
 #endif
+
+	if (ini.Is_Present(MOREQOL)) {
+		MaxFreeRefineryDistanceBias = ini.Get_Int(MOREQOL, "MaxFreeRefineryDistanceBias", MaxFreeRefineryDistanceBias);
+		MinHarvesterQueueJumpDistance = ini.Get_Int(MOREQOL, "MinHarvesterQueueJumpDistance", MinHarvesterQueueJumpDistance);
+		MaxWallExtensionDistance = ini.Get_Int(MOREQOL, "MaxWallExtensionDistance", MaxWallExtensionDistance);
+		WallCostMultiplier = ini.Get_Int(MOREQOL, "WallCostMultiplier", WallCostMultiplier);
+		AutoRepairFacilityKickOut = ini.Get_Bool(MOREQOL, "AutoRepairFacilityKickOut", AutoRepairFacilityKickOut);
+	}
 
 	if (ini.Is_Present(GENERAL)) {
 		TurboBoost = ini.Get_Fixed(GENERAL, "TurboBoost", TurboBoost);
@@ -510,8 +523,6 @@ bool RulesClass::General(CCINIClass & ini)
 		ChronalVortex.Set_Range(VortexRange / CELL_LEPTON_W);
 		ChronalVortex.Set_Speed(VortexSpeed);
 		ChronalVortex.Set_Damage(VortexDamage);
-
-		MaxFreeRefineryDistanceBias = ini.Get_Int(GENERAL, "MaxFreeRefineryDistanceBias", MaxFreeRefineryDistanceBias);
 
 		//ChronalVortex.Set_Range ( ini.Get_Int (GENERAL, "VortexRange", ChronalVortex.Get_Range() ) );
 		//ChronalVortex.Set_Speed ( ini.Get_Int (GENERAL, "VortexSpeed", ChronalVortex.Get_Speed() ) );

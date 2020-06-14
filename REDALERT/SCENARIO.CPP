@@ -2267,6 +2267,16 @@ bool Read_Scenario_INI(char * fname, bool )
 	Rule.Objects(AftermathINI);
 	Rule.Difficulty(AftermathINI);
 #endif
+	Rule.General(MoreQoLINI);
+	Rule.Recharge(MoreQoLINI);
+	Rule.AI(MoreQoLINI);
+	Rule.Powerups(MoreQoLINI);
+	Rule.Land_Types(MoreQoLINI);
+	Rule.Themes(MoreQoLINI);
+	Rule.IQ(MoreQoLINI);
+	Rule.Objects(MoreQoLINI);
+	Rule.Difficulty(MoreQoLINI);
+
 
 	/*
 	**	For civilians, remove the graphics name override from the base rules (can still be overridden in scenario-specific INI).

@@ -238,6 +238,7 @@ CCINIClass RuleINI;
 #ifdef FIXIT_CSII	//	checked - ajw 9/28/98
 CCINIClass AftermathINI;
 #endif
+CCINIClass MoreQoLINI;
 
 /***************************************************************************
 **	This points to the benchmark objects that are allocated only if the

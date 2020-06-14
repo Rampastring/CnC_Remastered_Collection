@@ -891,15 +891,37 @@ class RulesClass {
 			RB_ALWAYS,
 		} ResourceBarDisplayMode;
 
+		// More QoL Improvements - mod by Rampastring
+
 		/*
-		** When looking for refineries, the harvester will prefer
-		** a distant free refinery over a closer occupied refinery only
-		** if their distance difference in cells is smaller than this.
+		**	When looking for refineries, the harvester will prefer
+		**	a distant free refinery over a closer occupied refinery only
+		**	if their distance difference in cells is smaller than this.
 		*/
 		int MaxFreeRefineryDistanceBias;
 
+		/*
+		**	If a refinery is already occupied by a returning harvester and
+		**	another harvester is also looking to dock, allow the new harvester
+		**	to take over the refinery if the difference in distance to the refinery
+		**	between the existing harvester and the new harvester is at least
+		**	this many tiles.
+		*/
+		int MinHarvesterQueueJumpDistance;
+
+		int MaxWallExtensionDistance;
+
+		int WallCostMultiplier;
+
+		/*
+		** Should repair facilities automatically kick
+		** out units once fully repaired?
+		*/
+		bool AutoRepairFacilityKickOut;
+
+
 		// Some additional space for save game compatibility.
-		unsigned char SaveLoadPadding[60];
+		unsigned char SaveLoadPadding[47];
 };
 
 

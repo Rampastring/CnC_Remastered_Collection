@@ -151,6 +151,7 @@ extern CCINIClass					RuleINI;
 #ifdef FIXIT_CSII	//	checked - ajw 9/28/98
 extern CCINIClass					AftermathINI;
 #endif
+extern CCINIClass					MoreQoLINI;
 //extern Benchmark *				Benches;
 extern int							MapTriggerID;
 extern int							LogicTriggerID;
