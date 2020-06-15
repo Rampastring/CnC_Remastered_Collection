@@ -2424,76 +2424,7 @@ int UnitClass::Mission_Unload(void)
 			Transmit_Message(RADIO_OVER_OUT);
 
 			Assign_Mission(MISSION_HARVEST);
-			break;
-
-		case UNIT_TRUCK:
-			switch (Status) {
-				case INITIAL_CHECK:
-					dir = Desired_Load_Dir(NULL, cell);
-					if (How_Many() && cell != 0) {
-						Do_Turn(dir);
-						Status = MANEUVERING;
-						return(1);
-					} else {
-						Assign_Mission(MISSION_GUARD);
-					}
-					break;
-
-				case MANEUVERING:
-					if (!IsRotating) {
-						Status = UNLOADING;
-						return(1);
-					}
-					break;
-
-				case UNLOADING:
-					if (How_Many()) {
-						FootClass * passenger = Detach_Object();
-
-						if (passenger != NULL) {
-							DirType toface = DIR_S + PrimaryFacing;
-							bool placed = false;
-
-							for (FacingType face = FACING_N; face < FACING_COUNT; face++) {
-								DirType newface = toface + Facing_Dir(face);
-								CELL newcell = Adjacent_Cell(Coord_Cell(Coord), newface);
-
-								if (passenger->Can_Enter_Cell(newcell) == MOVE_OK) {
-									ScenarioInit++;
-									passenger->Unlimbo(Coord_Move(Coord, newface, 0x0080), newface);
-									ScenarioInit--;
-									passenger->Assign_Mission(MISSION_MOVE);
-									passenger->Assign_Destination(::As_Target(newcell));
-									placed = true;
-									break;
-								}
-							}
-
-							/*
-							** If the attached unit could NOT be deployed, then re-attach
-							**	it and then bail out of this deploy process.
-							*/
-							if (!placed) {
-								Attach(passenger);
-								Status = CLOSING_DOOR;
-							}
-							else {
-								passenger->Look(false);
-							}
-						}
-					} else {
-						Status = CLOSING_DOOR;
-					}
-					break;
-
-				/*
-				**	Close APC door in preparation for normal operation.
-				*/
-				case CLOSING_DOOR:
-					Assign_Mission(MISSION_GUARD);
-					break;
-			}
-			break;
+			break;		
 
 		case UNIT_APC:
 #ifdef FIXIT_PHASETRANSPORT	//	checked - ajw 9/28/98
@@ -2768,7 +2699,76 @@ int UnitClass::Mission_Unload(void)
 			Assign_Mission(MISSION_GUARD);
 			break;
 #endif
+		case UNIT_TRUCK:
 		default:
+			switch (Status) {
+				case INITIAL_CHECK:
+					dir = Desired_Load_Dir(NULL, cell);
+					if (How_Many() && cell != 0) {
+						Do_Turn(dir);
+						Status = MANEUVERING;
+						return(1);
+					}
+					else {
+						Assign_Mission(MISSION_GUARD);
+					}
+					break;
+
+				case MANEUVERING:
+					if (!IsRotating) {
+						Status = UNLOADING;
+						return(1);
+					}
+					break;
+
+				case UNLOADING:
+					if (How_Many()) {
+						FootClass* passenger = Detach_Object();
+
+						if (passenger != NULL) {
+							DirType toface = DIR_S + PrimaryFacing;
+							bool placed = false;
+
+							for (FacingType face = FACING_N; face < FACING_COUNT; face++) {
+								DirType newface = toface + Facing_Dir(face);
+								CELL newcell = Adjacent_Cell(Coord_Cell(Coord), newface);
+
+								if (passenger->Can_Enter_Cell(newcell) == MOVE_OK) {
+									ScenarioInit++;
+									passenger->Unlimbo(Coord_Move(Coord, newface, 0x0080), newface);
+									ScenarioInit--;
+									passenger->Assign_Mission(MISSION_MOVE);
+									passenger->Assign_Destination(::As_Target(newcell));
+									placed = true;
+									break;
+								}
+							}
+
+							/*
+							** If the attached unit could NOT be deployed, then re-attach
+							**	it and then bail out of this deploy process.
+							*/
+							if (!placed) {
+								Attach(passenger);
+								Status = CLOSING_DOOR;
+							}
+							else {
+								passenger->Look(false);
+							}
+						}
+					}
+					else {
+						Status = CLOSING_DOOR;
+					}
+					break;
+
+					/*
+					**	Close APC door in preparation for normal operation.
+					*/
+				case CLOSING_DOOR:
+					Assign_Mission(MISSION_GUARD);
+					break;
+			}
 			break;
 	}
 	return(MissionControl[Mission].Normal_Delay() + Random_Pick(0, 2));
