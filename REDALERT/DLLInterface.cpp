@@ -6512,6 +6512,34 @@ void DLLExportClass::Cell_Class_Draw_It(CNCDynamicMapStruct *dynamic_map, int &e
 		}
 	}
 
+	/*
+	** Render wall placement cursor as temporary smudges.
+	** This reduces the visual glitches associated with the asynchronous build preview updates.
+	** pchote - "Modern Wall Building" mod.
+	*/
+	if (cell_ptr->IsCursorHere && ((BuildingTypeClass*)Map.PendingObject)->IsWall && cell != Map.ZoneCell) {
+
+		CNCDynamicMapEntryStruct& flag_entry = dynamic_map->Entries[entry_index++];
+
+		strncpy(flag_entry.AssetName, cell_ptr->Is_Clear_To_Build() ? "PLACEMENT_GOOD" : "PLACEMENT_BAD", CNC_OBJECT_ASSET_NAME_LENGTH);
+		flag_entry.AssetName[CNC_OBJECT_ASSET_NAME_LENGTH - 1] = 0;
+		flag_entry.Type = -1;
+		flag_entry.Owner = cell_ptr->Owner;
+		flag_entry.DrawFlags = SHAPE_CENTER | SHAPE_GHOST | SHAPE_FADING;
+		flag_entry.PositionX = xpixel + (ICON_PIXEL_W / 2);
+		flag_entry.PositionY = ypixel + (ICON_PIXEL_H / 2);
+		flag_entry.Width = 24;
+		flag_entry.Height = 24;
+		flag_entry.CellX = Cell_X(cell);
+		flag_entry.CellY = Cell_Y(cell);
+		flag_entry.ShapeIndex = 0;
+		flag_entry.IsSmudge = true;
+		flag_entry.IsOverlay = false;
+		flag_entry.IsResource = false;
+		flag_entry.IsSellable = false;
+		flag_entry.IsTheaterShape = false;
+		flag_entry.IsFlag = false;
+	}
 
 	if (cell_ptr->IsFlagged) {
 

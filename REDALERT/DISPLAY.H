@@ -202,6 +202,14 @@ class DisplayClass: public MapClass
 		virtual void Code_Pointers(void);
 		virtual void Decode_Pointers(void);
 
+		/*
+		** pchote - "Modern Wall Building" mod.
+		*/
+		CELL LineBuildZoneCell;
+		bool LineBuildSuppressed;
+
+		bool Extend_Wall_Cursor_Shape(short* placementList, int& placementListLength, OverlayTypeClass const& wall, CELL cell, DirType dir, int step);
+
 	protected:
 		virtual void Mouse_Right_Press(void);
 		virtual void Mouse_Left_Press(int x, int y);

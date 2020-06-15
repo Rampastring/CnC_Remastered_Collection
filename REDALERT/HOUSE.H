@@ -842,6 +842,11 @@ class HouseClass {
 
 		friend class MapEditClass;
 
+		/*
+		** pchote - "Modern Wall Building" mod.
+		*/
+		bool Extend_Wall(OverlayTypeClass const& wall, HousesType house, CELL cell, DirType dir, int step);
+
 	private:
 		void Silo_Redraw_Check(long oldtib, long oldcap);
 		int AI_Building(void);

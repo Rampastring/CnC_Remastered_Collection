@@ -3830,3 +3830,32 @@ int BuildingTypeClass::Full_Name(void) const
 	}
 	return(TXT_CIVILIAN_BUILDING);
 }
+
+/***********************************************************************************************
+ * BuildingTypeClass::Overlay_Type -- Returns the overlay type associated with this building.  *
+ *                                                                                             *
+ *    Use this routine to determine the overlay type associated with a wall.                   *
+ *                                                                                             *
+ * INPUT:   none                                                                               *
+ *                                                                                             *
+ * OUTPUT:  OverlayType; the overlay type for the wall or OVERLAY_NONE for non-walls.          *
+ *                                                                                             *
+ * HISTORY:                                                                                    *
+ *   05/22/2020 pchote : Created for the "Modern Wall Building" mod.                           *
+ *   06/15/2020 Rampastring : Copied for More QoL Improvements.                                *
+ *=============================================================================================*/
+OverlayType BuildingTypeClass::Overlay_Type(void) const
+{
+	if (!IsWall)
+		return OVERLAY_NONE;
+
+	switch (Type) {
+		case STRUCT_SANDBAG_WALL: return OVERLAY_SANDBAG_WALL;
+		case STRUCT_CYCLONE_WALL: return OVERLAY_CYCLONE_WALL;
+		case STRUCT_BRICK_WALL: return OVERLAY_BRICK_WALL;
+		case STRUCT_BARBWIRE_WALL: return OVERLAY_BARBWIRE_WALL;
+		case STRUCT_WOOD_WALL: return OVERLAY_WOOD_WALL;
+		case STRUCT_FENCE: return OVERLAY_FENCE;
+		default: return OVERLAY_NONE;
+	}
+}
