@@ -273,7 +273,7 @@ RulesClass::RulesClass(void) :
 	MaxFreeRefineryDistanceBias(10),
 	MinHarvesterQueueJumpDistance(7),
 	MaxWallExtensionDistance(4),
-	WallCostMultiplier(3),
+	WallSellPriceDivisor(3),
 	AutoRepairFacilityKickOut(true)
 {
 #ifdef FIXIT_CSII	//	checked - ajw 9/28/98
@@ -419,7 +419,7 @@ bool RulesClass::General(CCINIClass & ini)
 		MaxFreeRefineryDistanceBias = ini.Get_Int(MOREQOL, "MaxFreeRefineryDistanceBias", MaxFreeRefineryDistanceBias);
 		MinHarvesterQueueJumpDistance = ini.Get_Int(MOREQOL, "MinHarvesterQueueJumpDistance", MinHarvesterQueueJumpDistance);
 		MaxWallExtensionDistance = ini.Get_Int(MOREQOL, "MaxWallExtensionDistance", MaxWallExtensionDistance);
-		WallCostMultiplier = ini.Get_Int(MOREQOL, "WallCostMultiplier", WallCostMultiplier);
+		WallSellPriceDivisor = ini.Get_Int(MOREQOL, "WallSellPriceDivisor", WallSellPriceDivisor);
 		AutoRepairFacilityKickOut = ini.Get_Bool(MOREQOL, "AutoRepairFacilityKickOut", AutoRepairFacilityKickOut);
 	}
 

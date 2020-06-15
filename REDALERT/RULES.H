@@ -909,9 +909,17 @@ class RulesClass {
 		*/
 		int MinHarvesterQueueJumpDistance;
 
+		/*
+		**	The maximum distance that walls will extend to when produced.
+		*/
 		int MaxWallExtensionDistance;
 
-		int WallCostMultiplier;
+		/*
+		**	Wall extension does not automatically increase the cost of walls.
+		**	As such, you can actually get multiple wall pieces for the price of one.
+		**	To offset it, a wall's sell price is divided by this.
+		*/
+		int WallSellPriceDivisor;
 
 		/*
 		** Should repair facilities automatically kick

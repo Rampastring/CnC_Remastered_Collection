@@ -658,7 +658,7 @@ void DisplayClass::Set_Cursor_Shape(short const * list)
 			OverlayTypeClass const& wall = OverlayTypeClass::As_Reference(btype->Overlay_Type());
 			int cursorLength = 1;
 			for (int i = 0; i < 4; i++)
-				Extend_Wall_Cursor_Shape(_list, cursorLength, wall, ZoneCell, cardinal[i], 5);
+				Extend_Wall_Cursor_Shape(_list, cursorLength, wall, ZoneCell, cardinal[i], Rule.MaxWallExtensionDistance);
 
 			_list[cursorLength] = REFRESH_EOL;
 		}

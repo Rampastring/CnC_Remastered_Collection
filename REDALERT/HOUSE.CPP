@@ -3202,7 +3202,7 @@ bool HouseClass::Place_Object(RTTIType type, CELL cell)
 							OverlayTypeClass const & wall = OverlayTypeClass::As_Reference(otype);
 							DirType cardinal[4] = { DIR_N, DIR_E, DIR_S, DIR_W };
 							for (int i = 0; i < 4; i++)
-								Extend_Wall(wall, house, cell, cardinal[i], 5);
+								Extend_Wall(wall, house, cell, cardinal[i], Rule.MaxWallExtensionDistance);
 						}
 
 						if (PlayerPtr == this) {
@@ -4496,7 +4496,7 @@ void HouseClass::Sell_Wall(CELL cell)
 						Sound_Effect(VOC_CASHTURN);
 					}
 
-					Refund_Money((btype->Raw_Cost() / Rule.WallCostMultiplier) * Rule.RefundPercent);
+					Refund_Money((btype->Raw_Cost() / Rule.WallSellPriceDivisor) * Rule.RefundPercent);
 					Map[cell].Overlay = OVERLAY_NONE;
 					Map[cell].OverlayData = 0;
 					Map[cell].Owner = HOUSE_NONE;
