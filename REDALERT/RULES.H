@@ -922,14 +922,20 @@ class RulesClass {
 		int WallSellPriceDivisor;
 
 		/*
-		** Should repair facilities automatically kick
-		** out units once fully repaired?
+		**	Should repair facilities automatically kick
+		**	out units once fully repaired?
 		*/
 		bool AutoRepairFacilityKickOut;
 
+		/*
+		**	The AI completely surrenders if it has already entered fire-sale
+		**	mode and has fewer objects left than this.
+		*/
+		int AISurrenderObjectCountThreshold;
+
 
 		// Some additional space for save game compatibility.
-		unsigned char SaveLoadPadding[47];
+		unsigned char SaveLoadPadding[43];
 };
 
 

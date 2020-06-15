@@ -7596,12 +7596,50 @@ bool HouseClass::Is_Hack_Prevented(RTTIType rtti, int value) const
  *=============================================================================================*/
 bool HouseClass::Fire_Sale(void)
 {
+	// Check if we should leave a single building standing instead of selling everything.
+	// We should leave a building if we currently have enough buildings or units
+	// that we can still do damage with our units.
+	bool leaveABuilding = Special.IsEarlyWin;
+	if (leaveABuilding) {
+		int objectCount = 0;
+		for (int index = 0; index < Units.Count(); index++) {
+			UnitClass* c = Units.Ptr(index);
+			if (c != NULL && !c->IsInLimbo && c->House == this && c->Strength > 0) {
+				objectCount++;
+			}
+		}
+
+		for (int index = 0; index < Infantry.Count(); index++) {
+			InfantryClass* i = Infantry.Ptr(index);
+			if (i != NULL && !i->IsInLimbo && i->House == this && i->Strength > 0) {
+				objectCount++;
+			}
+		}
+
+		for (int index = 0; index < Buildings.Count(); index++) {
+			BuildingClass* b = Buildings.Ptr(index);
+			if (b != NULL && !b->IsInLimbo && b->House == this && b->Strength > 0 && b->Class->IsCrew) {
+				// You typically get multiple infantry from selling a building
+				objectCount = objectCount + 2;
+			}
+		}
+
+		if (objectCount < Rule.AISurrenderObjectCountThreshold) {
+			leaveABuilding = false;
+		}
+	}
+
 	if (CurBuildings > 0) {
 		for (int index = 0; index < Buildings.Count(); index++) {
 			BuildingClass * b = Buildings.Ptr(index);
 
 			if (b != NULL && !b->IsInLimbo && b->House == this && b->Strength > 0) {
-				b->Sell_Back(1);
+				if (leaveABuilding && !b->Class->IsWall) {
+					leaveABuilding = false;
+				}
+				else {
+					b->Sell_Back(1);
+				}
 			}
 		}
 		return(true);
