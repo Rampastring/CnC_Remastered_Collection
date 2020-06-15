@@ -337,7 +337,7 @@ public:		//ST - 1/21/2019 11:59AM
 		/*
 		** Some additional padding in case we need to add data to the class and maintain backwards compatibility for save/load
 		*/
-		unsigned char SaveLoadPadding[1024];
+		unsigned char SaveLoadPadding[1019];
 
 };
 
