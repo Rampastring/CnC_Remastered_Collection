@@ -465,74 +465,6 @@ bool Read_Scenario(char * name)
 	Clear_Scenario();
 	ScenarioInit++;
 	if (Read_Scenario_INI(name)) {
-#ifdef FIXIT_CSII	//	ajw - Added runtime check for Aftermath to skirmish mode case.
-		bool readini = false;
-		switch(Session.Type) {
-			case GAME_NORMAL:
-				readini = false;
-				break;
-			case GAME_SKIRMISH:
-#ifdef FIXIT_VERSION_3
-				readini = bAftermathMultiplayer;
-#endif
-				break;
-			case GAME_INTERNET:
-#ifndef FIXIT_VERSION_3			//	Loading of Aftermath rules depends on bAftermathMultiplayer now.
-				if (Is_Mission_Counterstrike(name)) {
-					readini = false;	// Don't allow AM units on a CS map in WChat
-					break;
-				}
-#endif		//	( Note lack of break; )
-			default:
-#ifdef FIXIT_VERSION_3
-				readini = bAftermathMultiplayer;
-#else
-				if (PlayingAgainstVersion >= VERSION_AFTERMATH_CS) {
-					readini = true;
-				}
-#endif
-				break;
-		}
-		if(readini) {
-			/*
-			** Find out if the CD in the current drive is the Aftermath disc.
-		  	*/
-#ifdef FIXIT_VERSION_3
-			int cd_index = Get_CD_Index(CCFileClass::Get_CD_Drive(), 1*60);
-			if( !( Using_DVD() && cd_index == 5 ) && cd_index != 3 ) {
-#else
-			if(Get_CD_Index(CCFileClass::Get_CD_Drive(), 1*60) != 3) {
-#endif
-				GamePalette.Set(FADE_PALETTE_FAST, Call_Back);
-				RequiredCD = 3;
-				if (!Force_CD_Available(RequiredCD)) {	// force Aftermath CD in drive.
-#ifndef WOLAPI_INTEGRATION
-					#ifdef WIN32
-					if(Special.IsFromWChat || SpawnedFromWChat) {
-						char packet[10] = {"Hello"};
-					Send_Data_To_DDE_Server (packet, strlen(packet), DDEServerClass::DDE_CONNECTION_FAILED);
-						}
-					#endif
-#endif
-					if (!RunningAsDLL) {	//PG
-						Emergency_Exit(EXIT_FAILURE);
-					}
-		     	}
-			}
-			CCINIClass ini;
-			if (ini.Load(CCFileClass("MPLAYER.INI"), false)) {
-				Rule.General(ini);
-				Rule.Recharge(ini);
-				Rule.AI(ini);
-				Rule.Powerups(ini);
-				Rule.Land_Types(ini);
-				Rule.Themes(ini);
-				Rule.IQ(ini);
-				Rule.Objects(ini);
-				Rule.Difficulty(ini);
-			}
-		}
-#endif
 		Fill_In_Data();
 		Map.Set_View_Dimensions(0, 0, Map.MapCellWidth, Map.MapCellHeight);
 	} else {
@@ -2256,6 +2188,7 @@ bool Read_Scenario_INI(char * fname, bool )
 	Rule.IQ(RuleINI);
 	Rule.Objects(RuleINI);
 	Rule.Difficulty(RuleINI);
+
 #ifdef FIXIT_CSII	//	checked - ajw 9/28/98 - Except does this _change_ any rules, or just add to them? - Just adds.
 	Rule.General(AftermathINI);
 	Rule.Recharge(AftermathINI);
@@ -2266,6 +2199,34 @@ bool Read_Scenario_INI(char * fname, bool )
 	Rule.IQ(AftermathINI);
 	Rule.Objects(AftermathINI);
 	Rule.Difficulty(AftermathINI);
+
+	// 06/15/2020 Rampastring - Westwood applied MPLAYER.INI after everything else,
+	// including scenario overrides. It makes much more sense to apply it after AFTRMATH.INI instead.
+
+	switch (Session.Type) {
+		case GAME_NORMAL:
+			break;
+		case GAME_INTERNET:
+		case GAME_SKIRMISH:
+		case GAME_GLYPHX_MULTIPLAYER:
+		default:
+			if (bAftermathMultiplayer) {
+				CCINIClass mplayerINI;
+				if (mplayerINI.Load(CCFileClass("MPLAYER.INI"), false)) {
+					Rule.General(mplayerINI);
+					Rule.Recharge(mplayerINI);
+					Rule.AI(mplayerINI);
+					Rule.Powerups(mplayerINI);
+					Rule.Land_Types(mplayerINI);
+					Rule.Themes(mplayerINI);
+					Rule.IQ(mplayerINI);
+					Rule.Objects(mplayerINI);
+					Rule.Difficulty(mplayerINI);
+				}
+			}
+			break;
+	}
+
 #endif
 	Rule.General(MoreQoLINI);
 	Rule.Recharge(MoreQoLINI);
@@ -2276,7 +2237,6 @@ bool Read_Scenario_INI(char * fname, bool )
 	Rule.IQ(MoreQoLINI);
 	Rule.Objects(MoreQoLINI);
 	Rule.Difficulty(MoreQoLINI);
-
 
 	/*
 	**	For civilians, remove the graphics name override from the base rules (can still be overridden in scenario-specific INI).
