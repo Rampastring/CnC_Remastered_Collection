@@ -5934,6 +5934,19 @@ int HouseClass::AI_Building(void)
 		}
 
 		/*
+		**	Enables radar building for AI, even if human player does not have air units. see line 5906
+		*/
+		if (BQuantity[STRUCT_RADAR] == 0) {
+			b = &BuildingTypeClass::As_Reference(STRUCT_RADAR);
+			if (Can_Build(b, ActLike) && (b->Cost_Of() < money || hasincome)) {
+				choiceptr = BuildChoice.Alloc();
+				if (choiceptr != NULL) {
+					*choiceptr = BuildChoiceClass(URGENCY_MEDIUM, b->Type);
+				}
+			}
+		}
+		
+		/*
 		**	Advanced base defense would be good.
 		*/
 		current = BQuantity[STRUCT_TESLA];
