@@ -366,6 +366,15 @@ class TechnoClass :	public RadioClass,
 		static int const BodyShape[32];
 //		static int const TurretShape[32];
 
+		// Attack Move by Butch: Allows to remember the intial target in case of appearing enemies during an attack move
+		TARGET RememberedNavCom;
+		TARGET RememberedTarCom;
+		int NavComDelay;
+		int TarComDelay;
+		// Attack Move by Butch: switch attack move on or off
+		bool AttackMove = false;
+		// Attack Move by Butch: Reset Attack Move parameters after certain events
+		void ResetAttackMove(void);
 
 };
 

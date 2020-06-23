@@ -3782,6 +3782,12 @@ void DisplayClass::Mouse_Left_Up(bool shadow, ObjectClass * object, ActionType a
  *=============================================================================================*/
 void DisplayClass::Mouse_Left_Release(CELL cell, int x, int y, ObjectClass * object, ActionType action, bool wwsmall)
 {
+
+	// Attack Move by Butch
+	if (action == ACTION_ATTACKMOVE) {
+		action = ACTION_MOVE;
+	}
+
 	if (PendingObjectPtr) {
 
 		/*
@@ -3870,6 +3876,14 @@ void DisplayClass::Mouse_Left_Release(CELL cell, int x, int y, ObjectClass * obj
 				AllowVoice = true;
 				for (int index = 0; index < CurrentObject.Count(); index++) {
 					ObjectClass * tobject = CurrentObject[index];
+
+					// Attack move by Butch: Forget about everything attack move related if player issues new orders
+					if (tobject && tobject->Is_Techno() && ((TechnoClass*)tobject)->AttackMove == true) {
+						((TechnoClass*)tobject)->RememberedNavCom = 0;
+						((TechnoClass*)tobject)->RememberedTarCom = 0;
+						((TechnoClass*)tobject)->AttackMove = false;
+					}
+
 					if (object) {
 						tobject->Active_Click_With(tobject->What_Action(object), object);
 					} else {

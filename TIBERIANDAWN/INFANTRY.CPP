@@ -1901,6 +1901,13 @@ void InfantryClass::Enter_Idle_Mode(bool )
 			}
 		}
 	}
+
+	if (order == MISSION_GUARD) {
+		// Attack Move by Butch: As Infantry does GUARD at the end, the Mission_Move method where usually the reset starts is never called
+		// therefore this hack. Maybe just necesasry for Red Alert, but I'll leave it in
+		ResetAttackMove();
+	}
+
 	Assign_Mission(order);
 }
 
