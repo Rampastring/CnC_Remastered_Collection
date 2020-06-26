@@ -5760,9 +5760,13 @@ int HouseClass::AI_Building(void)
 		level = Control.TechLevel;
 		unsigned int current;
 
-		// Changed by Bast75, shuffled the order, prio's and more to make the AI faster and stronger.
+		//  Changed by Bast75
+		//  The entire AI_Building HouseClass is shuffled. The order, prio's and cash requirements are changed to make the AI faster, stronger and in cashflow smarter.
+		//  Also added some extra buildings so the AI can build this to.
+		//  Note: Higher in this list is higher prio also.
+		//  Note2: In Rules.cpp also some changes for building limits, base ratios, etc.
 
-		//First check if enemy has Naval:  VesselTotals
+		//First check if enemy has Naval:
 		bool EnemyHasNaval = false;
 		if (enemy != NULL) {
 			if (Does_Enemy_Building_Exist(STRUCT_SUB_PEN) || Does_Enemy_Building_Exist(STRUCT_SHIP_YARD)) {
@@ -5869,6 +5873,27 @@ int HouseClass::AI_Building(void)
 				choiceptr = BuildChoice.Alloc();
 				if (choiceptr != NULL) {
 					*choiceptr = BuildChoiceClass(URGENCY_MEDIUM, b->Type);
+				}
+			}
+		}
+
+		//  naval
+		//  Only if enemy (player) uses Naval. otherwise it keeps building and trying to place it, even on maps without water.
+		//  First high prio, second low prio
+		current = BQuantity[STRUCT_SHIP_YARD] + BQuantity[STRUCT_SUB_PEN];
+		if (EnemyHasNaval && current < 2) {
+			b = &BuildingTypeClass::As_Reference(STRUCT_SHIP_YARD);
+			if (Can_Build(b, ActLike) && (b->Cost_Of() < money)) {
+				choiceptr = BuildChoice.Alloc();
+				if (choiceptr != NULL) {
+					*choiceptr = BuildChoiceClass(current == 0 ? URGENCY_HIGH : URGENCY_LOW, b->Type);
+				}
+			}
+			else {
+				b = &BuildingTypeClass::As_Reference(STRUCT_SUB_PEN);
+				choiceptr = BuildChoice.Alloc();
+				if (choiceptr != NULL) {
+					*choiceptr = BuildChoiceClass(current == 0 ? URGENCY_HIGH : URGENCY_LOW, b->Type);
 				}
 			}
 		}
@@ -5982,35 +6007,6 @@ int HouseClass::AI_Building(void)
 						threat_quantity += 4; // Make extra air stuff if enemy has naval stuf also (Naval map?)
 					}
 					*choiceptr = BuildChoiceClass((CurAircraft < (unsigned)threat_quantity) ? URGENCY_HIGH : URGENCY_MEDIUM, b->Type);
-				}
-			}
-		}
-
-		//  naval
-		current = BQuantity[STRUCT_SHIP_YARD] + BQuantity[STRUCT_SUB_PEN];
-		if ((current < Round_Up(Rule.WarRatio * fixed(CurBuildings)) && EnemyHasNaval) && current < 2) {
-			b = &BuildingTypeClass::As_Reference(STRUCT_SHIP_YARD);
-			if (Can_Build(b, ActLike) && (b->Cost_Of() < money)) {
-				choiceptr = BuildChoice.Alloc();
-				if (choiceptr != NULL) {
-					if (EnemyHasNaval) {
-						*choiceptr = BuildChoiceClass(current == 0 ? URGENCY_HIGH : URGENCY_MEDIUM, b->Type);
-					}
-					else {
-						*choiceptr = BuildChoiceClass(current == 0 ? URGENCY_MEDIUM : URGENCY_LOW, b->Type);
-					}
-				}
-			}
-			else {
-				b = &BuildingTypeClass::As_Reference(STRUCT_SUB_PEN);
-				choiceptr = BuildChoice.Alloc();
-				if (choiceptr != NULL) {
-					if (EnemyHasNaval) {
-						*choiceptr = BuildChoiceClass(current == 0 ? URGENCY_HIGH : URGENCY_MEDIUM, b->Type);
-					}
-					else {
-						*choiceptr = BuildChoiceClass(current == 0 ? URGENCY_MEDIUM : URGENCY_LOW, b->Type);
-					}
 				}
 			}
 		}

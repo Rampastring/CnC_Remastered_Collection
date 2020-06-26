@@ -108,7 +108,7 @@ RulesClass::RulesClass(void) :
 	AARatio("0.2"), // (".14"),
 	AALimit(15), // (10),
 	DefenseRatio("0.51"), // (".5"),
-	DefenseLimit(50), // (40),
+	DefenseLimit(55), // (40),
 	WarRatio("0.14"), // (".1"),
 	WarLimit(4), // (2),
 	BarracksRatio("0.11"), // (".16"),
@@ -117,8 +117,8 @@ RulesClass::RulesClass(void) :
 	RefineryRatio("0.25"), // (".16"),
 	BaseSizeAdd(999), // (3),  Why let the AI not grow larger than player?? Let the player try to keep up!!! :-)
 	PowerSurplus(95), // (50),
-	InfantryReserve(2000),
-	InfantryBaseMult(1), // (2),
+	InfantryReserve(2500), // (2000)
+	InfantryBaseMult(1), // (2), Don't spam Infantry that much. We want Tanks!!!
 	ChronoDuration(3),
 	WaterCrateChance(".2"),
 	SoloCrateMoney(2000),
