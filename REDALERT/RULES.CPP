@@ -96,24 +96,24 @@ RulesClass::RulesClass(void) :
 	//// Changed by Bast75, the new prio & limits and the new building queue in house.cpp makes the computer way faster and stronger.
 	TurboBoost("1.5"),
 	AttackInterval(2), // 3
-	AttackDelay(5),
+	AttackDelay(8), // (5)
 	PowerEmergencyFraction("0.99"), // fixed::_3_4),
 	BadgerBombCount(1),
 	AirstripRatio("0.14"), // (".12"),
-	AirstripLimit(5),
+	AirstripLimit(3),
 	HelipadRatio("0.14"), // (".12"),
-	HelipadLimit(5),
+	HelipadLimit(3),
 	TeslaRatio("0.5"), // (".16"),
-	TeslaLimit(25), // (10),
+	TeslaLimit(15), // (10),
 	AARatio("0.2"), // (".14"),
-	AALimit(15), // (10),
+	AALimit(12), // (10),
 	DefenseRatio("0.51"), // (".5"),
-	DefenseLimit(55), // (40),
+	DefenseLimit(45), // (40),
 	WarRatio("0.14"), // (".1"),
-	WarLimit(4), // (2),
+	WarLimit(3), // (2),
 	BarracksRatio("0.11"), // (".16"),
-	BarracksLimit(2),
-	RefineryLimit(5), // (4),
+	BarracksLimit(1), // (2)
+	RefineryLimit(4),
 	RefineryRatio("0.25"), // (".16"),
 	BaseSizeAdd(999), // (3),  Why let the AI not grow larger than player?? Let the player try to keep up!!! :-)
 	PowerSurplus(95), // (50),
@@ -199,7 +199,7 @@ RulesClass::RulesClass(void) :
 	ProneDamageBias(fixed::_1_2),
 	QuakeDamagePercent(".33"),
 	QuakeChance(".2"),
-	GrowthRate(2),
+	GrowthRate(1), // (2) // By Bast75, Let the Ore grow faster. Late Game improvement for all players.
 	ShroudRate(4),
 	CrateTime(10),
 	TimerWarning(2),
@@ -232,8 +232,8 @@ RulesClass::RulesClass(void) :
 	ConditionRed(fixed::_1_4),
 	RandomAnimateTime(".083"),
 	BailCount(28),
-	GoldValue(35),
-	GemValue(110),
+	GoldValue(35 * 100), // (35) By Bast75, give everyone 10* more cash on harvester return. Better for late game when almost al tiberium is gone.
+	GemValue(110 * 100), // (110)
 	AircraftMax(100),
 	AnimMax(100),
 	BuildingMax(500),

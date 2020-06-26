@@ -681,6 +681,50 @@ HouseClass::HouseClass(HousesType house) :
 	Make_Ally(house);
 	Assign_Handicap(Scen.CDifficulty);
 
+
+	// Added by Bast75, make sure we overwrite ini file for AI boost:
+	Rule.AutocreateTime=5; // (5);
+	Rule.AttackInterval=5; // 3
+	Rule.AttackDelay=5; // =5
+	//Rule.PowerEmergencyFraction="0.99"; // fixed::_3_4;
+	Rule.BadgerBombCount=1;
+	Rule.AirstripRatio="0.14"; // =".12";
+	Rule.AirstripLimit=3;
+	Rule.HelipadRatio="0.14"; // =".12";
+	Rule.HelipadLimit=3;
+	Rule.TeslaRatio="0.5"; // =".16";
+	Rule.TeslaLimit=15; // =10;
+	Rule.AARatio="0.2"; // =".14";
+	Rule.AALimit=12; // =10;
+	Rule.DefenseRatio="0.51"; // =".5";
+	Rule.DefenseLimit=45; // =40;
+	Rule.WarRatio="0.14"; // =".1";
+	Rule.WarLimit=3; // =2;
+	Rule.BarracksRatio="0.11"; // =".16";
+	Rule.BarracksLimit=1; // =2
+	Rule.RefineryLimit=6;
+	Rule.RefineryRatio="0.25"; // =".16";
+	Rule.BaseSizeAdd=999; // =3;  Why let the AI not grow larger than player?? Let the player try to keep up!!! :-
+	Rule.PowerSurplus=95; // =50;
+	Rule.InfantryReserve=3000; // =2000
+	Rule.InfantryBaseMult=1; // =2  Don't spam Infantry that much. We want Tanks or Air or Naval !!!
+	Rule.GrowthRate=1; // =2 //   By Bast75; Let the Ore grow faster. Late Game improvement for all players.
+	Rule.GoldValue=35 * 2; // 35   By Bast75; give everyone x more cash on harvester return. Better for late game when almost al tiberium is gone.
+	Rule.GemValue=110 * 2; // 110
+
+	Rule.MaxIQ=5;
+	Rule.IQSuperWeapons=5; // =4;
+	Rule.IQProduction=5;
+	Rule.IQGuardArea=5; // =4;
+	Rule.IQRepairSell=5; // =3;
+	Rule.IQCrush=5; // =2;
+	Rule.IQScatter=5; // =3;
+	Rule.IQContentScan=5; // =4;
+	Rule.IQAircraft=5; // =4;
+	Rule.IQHarvester=5; // =3;
+	Rule.IQSellBack=5; // =2;
+	
+	// End of adding AI stuff to overwrite INI
 	/*
 	**	Set the time of the first AI attack.
 	*/
@@ -1875,7 +1919,7 @@ void HouseClass::Harvested(unsigned tiberium)
 	** I believe in RA2 this was called a Virtual Purrifier
 	**/
 	if (!IsHuman) {
-		tiberium = (int)(tiberium * 2);
+		tiberium += (int)(tiberium / 2);
 	}
 	Tiberium += tiberium;
 	if (Tiberium > Capacity) {
@@ -5309,8 +5353,7 @@ UrgencyType HouseClass::Check_Lower_Power(void) const
 {
 	assert(Houses.ID(this) == ID);
 
-//	if (Power > Drain+300) { // Changed by Bast75, why sell power so soon? It's handy to have reserve.
-	if (Power > Drain + 300 + Rule.PowerSurplus) {
+	if (Power > Drain+300) {
 		return(URGENCY_LOW);
 	}
 	return(URGENCY_NONE);
@@ -5329,8 +5372,7 @@ UrgencyType HouseClass::Check_Raise_Power(void) const
 
 	UrgencyType urgency = URGENCY_NONE;
 
-//	if (Power_Fraction() < Rule.PowerEmergencyFraction && Power < Drain - 400) { // By Bast75, make low power more prio
-	if (Power_Fraction() < Rule.PowerEmergencyFraction && Power < Drain) {
+	if (Power_Fraction() < Rule.PowerEmergencyFraction && Power < Drain - 400) {
 //	if (Power_Fraction() < Rule.PowerEmergencyFraction && (BQuantity[STRUCT_CONST] == 0 || Available_Money() < 200 || Power < Drain-400)) {
 		urgency = URGENCY_MEDIUM;
 		if (State == STATE_ATTACKED) {
@@ -5357,6 +5399,16 @@ bool HouseClass::AI_Attack(UrgencyType )
 			}
 		}
 	}
+
+	//Added by Bast75, use Vessels to attack stuff also
+	for (index = 0; index < Vessels.Count(); index++) {
+		VesselClass* v = Vessels.Ptr(index);
+
+		if (v != NULL && !v->IsInLimbo && v->House == this && v->Strength > 0) {
+			v->Assign_Mission(MISSION_HUNT);
+		}
+	}
+
 	for (index = 0; index < Units.Count(); index++) {
 		UnitClass * u = Units.Ptr(index);
 
@@ -5516,17 +5568,25 @@ bool HouseClass::AI_Raise_Power(UrgencyType urgency) const
 	static struct {
 		StructType Structure;
 		UrgencyType Urgency;
-	} _types[] = {
+	} _types[] = { // Entire list changed by Bast75,
 		{STRUCT_CHRONOSPHERE, URGENCY_LOW},
-		{STRUCT_SHIP_YARD, URGENCY_MEDIUM}, // Changed by Bast75, don't sell this type so fast....
-		{STRUCT_SUB_PEN, URGENCY_MEDIUM}, // Changed by Bast75, don't sell this type so fast....
-		{STRUCT_ADVANCED_TECH, URGENCY_MEDIUM}, // Changed by Bast75, don't sell this type so fast....
+		{STRUCT_BARRACKS, URGENCY_LOW},
+		{STRUCT_TENT, URGENCY_LOW},
+		{STRUCT_WEAP, URGENCY_MEDIUM},
+		{STRUCT_SHIP_YARD, URGENCY_HIGH},
+		{STRUCT_SUB_PEN, URGENCY_HIGH},
+		{STRUCT_ADVANCED_TECH, URGENCY_MEDIUM},
 		{STRUCT_FORWARD_COM, URGENCY_LOW},
-		{STRUCT_SOVIET_TECH, URGENCY_MEDIUM},// Changed by Bast75, don't sell this type so fast....
+		{STRUCT_SOVIET_TECH, URGENCY_MEDIUM},
 		{STRUCT_IRON_CURTAIN, URGENCY_MEDIUM},
 		{STRUCT_RADAR, URGENCY_MEDIUM},
 		{STRUCT_REPAIR, URGENCY_MEDIUM},
-		{STRUCT_TESLA, URGENCY_HIGH}
+		{STRUCT_TESLA, URGENCY_HIGH},
+		{STRUCT_CAMOPILLBOX, URGENCY_HIGH},
+		{STRUCT_PILLBOX, URGENCY_HIGH},
+		{STRUCT_TURRET, URGENCY_HIGH},
+		{STRUCT_FLAME_TURRET, URGENCY_HIGH},
+		{STRUCT_MSLO, URGENCY_HIGH}
 	};
 
 	/*
@@ -5822,7 +5882,7 @@ int HouseClass::AI_Building(void)
 
 		//  Tent/Barracks
 		current = BQuantity[STRUCT_BARRACKS] + BQuantity[STRUCT_TENT];
-		if (current < Round_Up(Rule.BarracksRatio*fixed(CurBuildings)) && current < (unsigned)Rule.BarracksLimit && b->Cost_Of() < money) {
+		if (current < Round_Up(Rule.BarracksRatio*fixed(CurBuildings)) && current < (unsigned)Rule.BarracksLimit && b->Cost_Of() < money && money > 2000) {
 			b = &BuildingTypeClass::As_Reference(STRUCT_BARRACKS);
 			if (Can_Build(b, ActLike) && (b->Cost_Of() < money || hasincome)) {
 				choiceptr = BuildChoice.Alloc();
@@ -5866,20 +5926,8 @@ int HouseClass::AI_Building(void)
 			}
 		}
 
-		//  Radar
-		if (BQuantity[STRUCT_RADAR] == 0) {
-			b = &BuildingTypeClass::As_Reference(STRUCT_RADAR);
-			if (Can_Build(b, ActLike) && (b->Cost_Of() < money)) {
-				choiceptr = BuildChoice.Alloc();
-				if (choiceptr != NULL) {
-					*choiceptr = BuildChoiceClass(URGENCY_MEDIUM, b->Type);
-				}
-			}
-		}
-
 		//  naval
 		//  Only if enemy (player) uses Naval. otherwise it keeps building and trying to place it, even on maps without water.
-		//  First high prio, second low prio
 		current = BQuantity[STRUCT_SHIP_YARD] + BQuantity[STRUCT_SUB_PEN];
 		if (EnemyHasNaval && current < 2) {
 			b = &BuildingTypeClass::As_Reference(STRUCT_SHIP_YARD);
@@ -5898,9 +5946,20 @@ int HouseClass::AI_Building(void)
 			}
 		}
 
+		//  Radar
+		if (BQuantity[STRUCT_RADAR] == 0 && money > 1000) {
+			b = &BuildingTypeClass::As_Reference(STRUCT_RADAR);
+			if (Can_Build(b, ActLike) && (b->Cost_Of() < money)) {
+				choiceptr = BuildChoice.Alloc();
+				if (choiceptr != NULL) {
+					*choiceptr = BuildChoiceClass(URGENCY_MEDIUM, b->Type);
+				}
+			}
+		}
+
 		//  air defense if needed
 		current = BQuantity[STRUCT_SAM] + BQuantity[STRUCT_AAGUN];
-		if (current < Round_Up(Rule.AARatio*fixed(CurBuildings)) && current < (unsigned)Rule.AALimit) {
+		if (current < Round_Up(Rule.AARatio*fixed(CurBuildings)) && current < (unsigned)Rule.AALimit && money > 2000) {
 
 			/*
 			**	Building air defense only makes sense if the opponent has aircraft
@@ -5943,7 +6002,7 @@ int HouseClass::AI_Building(void)
 
 		//  Tech center as soon as possible.
 		current = BQuantity[STRUCT_ADVANCED_TECH] + BQuantity[STRUCT_SOVIET_TECH];
-		if (current < 1) {
+		if (current < 1 && money > 2000) {
 			b = &BuildingTypeClass::As_Reference(STRUCT_ADVANCED_TECH);
 			if (Can_Build(b, ActLike) && (b->Cost_Of() < money) && Power_Fraction() >= 1) {
 				choiceptr = BuildChoice.Alloc();
@@ -5963,7 +6022,7 @@ int HouseClass::AI_Building(void)
 
 		//  Gap generator.
 		current = BQuantity[STRUCT_GAP];
-		if (current < 3 && Power_Fraction() >= 1) {
+		if (current < 3 && Power_Fraction() >= 1 && money > 2000) {
 			b = &BuildingTypeClass::As_Reference(STRUCT_GAP);
 			if (Can_Build(b, ActLike) && (b->Cost_Of() < money)) {
 				choiceptr = BuildChoice.Alloc();
@@ -5975,7 +6034,7 @@ int HouseClass::AI_Building(void)
 
 		//  helipad would be good.
 		current = BQuantity[STRUCT_HELIPAD];
-		if (current < Round_Up(Rule.HelipadRatio*fixed(CurBuildings)) && current < (unsigned)Rule.HelipadLimit) {
+		if (current < Round_Up(Rule.HelipadRatio*fixed(CurBuildings)) && current < (unsigned)Rule.HelipadLimit && money > 2000) {
 			b = &BuildingTypeClass::As_Reference(STRUCT_HELIPAD);
 			if (Can_Build(b, ActLike) && (b->Cost_Of() < money)) {
 				choiceptr = BuildChoice.Alloc();
@@ -5987,14 +6046,14 @@ int HouseClass::AI_Building(void)
 					if (EnemyHasNaval) {
 						threat_quantity += 4; // Make extra air stuff if enemy has naval stuf also (Naval map?)
 					}
-					*choiceptr = BuildChoiceClass((CurAircraft < (unsigned)threat_quantity) ? URGENCY_HIGH : URGENCY_MEDIUM, b->Type);
+					*choiceptr = BuildChoiceClass((CurAircraft < (unsigned)threat_quantity) ? URGENCY_MEDIUM : URGENCY_LOW, b->Type);
 				}
 			}
 		}
 
 		//  airstrip
 		current = BQuantity[STRUCT_AIRSTRIP];
-		if (current < Round_Up(Rule.AirstripRatio*fixed(CurBuildings)) && current < (unsigned)Rule.AirstripLimit) {
+		if (current < Round_Up(Rule.AirstripRatio*fixed(CurBuildings)) && current < (unsigned)Rule.AirstripLimit && money > 2000) {
 			b = &BuildingTypeClass::As_Reference(STRUCT_AIRSTRIP);
 			if (Can_Build(b, ActLike) && (b->Cost_Of() < money)) {
 				choiceptr = BuildChoice.Alloc();
@@ -6006,14 +6065,14 @@ int HouseClass::AI_Building(void)
 					if (EnemyHasNaval) {
 						threat_quantity += 4; // Make extra air stuff if enemy has naval stuf also (Naval map?)
 					}
-					*choiceptr = BuildChoiceClass((CurAircraft < (unsigned)threat_quantity) ? URGENCY_HIGH : URGENCY_MEDIUM, b->Type);
+					*choiceptr = BuildChoiceClass((CurAircraft < (unsigned)threat_quantity) ? URGENCY_MEDIUM : URGENCY_LOW, b->Type);
 				}
 			}
 		}
 
 		//  Build a Nuclear Missile Silo (Nuke).
 		current = BQuantity[STRUCT_MSLO];
-		if (current == 0) {
+		if (current == 0 && money > 2000) {
 			b = &BuildingTypeClass::As_Reference(STRUCT_MSLO);
 			if (Can_Build(b, ActLike) && b->Cost_Of() < money) {
 				choiceptr = BuildChoice.Alloc();
@@ -6025,7 +6084,7 @@ int HouseClass::AI_Building(void)
 
 		//  Base defense.
 		current = BQuantity[STRUCT_PILLBOX] + BQuantity[STRUCT_CAMOPILLBOX] + BQuantity[STRUCT_TURRET] + BQuantity[STRUCT_FLAME_TURRET];
-		if (current < Round_Up(Rule.DefenseRatio * fixed(CurBuildings)) && current < (unsigned)Rule.DefenseLimit) {
+		if (current < Round_Up(Rule.DefenseRatio * fixed(CurBuildings)) && current < (unsigned)Rule.DefenseLimit && money > 2000) {
 			b = &BuildingTypeClass::As_Reference(STRUCT_FLAME_TURRET);
 			if (Can_Build(b, ActLike) && (b->Cost_Of() < money)) {
 				choiceptr = BuildChoice.Alloc();
@@ -6057,7 +6116,7 @@ int HouseClass::AI_Building(void)
 
 		//  Tesla coils
 		current = BQuantity[STRUCT_TESLA];
-		if (current < Round_Up(Rule.TeslaRatio*fixed(CurBuildings)) && current < (unsigned)Rule.TeslaLimit) {
+		if (current < Round_Up(Rule.TeslaRatio*fixed(CurBuildings)) && current < (unsigned)Rule.TeslaLimit && money > 2000) {
 			b = &BuildingTypeClass::As_Reference(STRUCT_TESLA);
 			if (Can_Build(b, ActLike) && (b->Cost_Of() < money) && Power_Fraction() >= 1) {
 				choiceptr = BuildChoice.Alloc();
@@ -6142,7 +6201,7 @@ int HouseClass::AI_Unit(void)
 	**  By Bast75:
 	**  If AI almost runs out of cash, it shouldn't spend cash on this. (Except the harvesters above)
 	**/
-	if (Tiberium < 1000) return(TICKS_PER_SECOND);
+	if (Tiberium < 2000) return(TICKS_PER_SECOND);
 	//  end of saving cash.
 
 	if (Session.Type == GAME_NORMAL) {
@@ -6263,33 +6322,17 @@ int HouseClass::AI_Unit(void)
 int HouseClass::AI_Vessel(void)
 {
 	assert(Houses.ID(this) == ID);
+
 	if (BuildVessel != VESSEL_NONE) return(TICKS_PER_SECOND);
+	if (CurVessels >= Control.MaxVessel) return(TICKS_PER_SECOND);
 
-	if (CurVessels >= Control.MaxVessel) {
-		return(TICKS_PER_SECOND);
-	}
-
-	/**
-	**  By Bast75:
-	**  If AI almost runs out of cash, it shouldn't spend cash on this.
-	**/
-	if (Tiberium < 1000) return(TICKS_PER_SECOND);
+	if (Tiberium < 500) return(TICKS_PER_SECOND);
 	//  end of saving cash.
 
 	if (Session.Type == GAME_NORMAL) {
 
 		int counter[VESSEL_COUNT];
-		if (Session.Type == GAME_NORMAL) {
-			memset(counter, 0x00, sizeof(counter));
-		} else {
-			for (VesselType index = VESSEL_FIRST; index < VESSEL_COUNT; index++) {
-				if (Can_Build(&VesselTypeClass::As_Reference(index), Class->House) && VesselTypeClass::As_Reference(index).Level <= (unsigned)Control.TechLevel) {
-					counter[index] = 16;
-				} else {
-					counter[index] = 0;
-				}
-			}
-		}
+		memset(counter, 0x00, sizeof(counter));
 
 		/*
 		**	Build a list of the maximum of each type we wish to produce. This will be
@@ -6297,14 +6340,14 @@ int HouseClass::AI_Vessel(void)
 		*/
 		int index;
 		for (index = 0; index < Teams.Count(); index++) {
-			TeamClass * tptr = Teams.Ptr(index);
-			if (tptr) {
-				TeamTypeClass const * team = tptr->Class;
-
+			TeamClass* tptr = Teams.Ptr(index);
+			if (tptr != NULL) {
+				TeamTypeClass const* team = tptr->Class;
 				if (((team->IsReinforcable && !tptr->IsFullStrength) || (!tptr->IsForcedActive && !tptr->IsHasBeen && !tptr->JustAltered)) && team->House == Class->House) {
 					for (int subindex = 0; subindex < team->ClassCount; subindex++) {
-						if (team->Members[subindex].Class->What_Am_I() == RTTI_VESSELTYPE) {
-							counter[((VesselTypeClass const *)(team->Members[subindex].Class))->Type] = 1;
+						TechnoTypeClass const* memtype = team->Members[subindex].Class;
+						if (memtype->What_Am_I() == RTTI_VESSELTYPE) {
+							counter[((VesselTypeClass const*)memtype)->Type] = 1;
 						}
 					}
 				}
@@ -6317,44 +6360,33 @@ int HouseClass::AI_Vessel(void)
 		**	of that type.
 		*/
 		for (index = 0; index < TeamTypes.Count(); index++) {
-			TeamTypeClass const * team = TeamTypes.Ptr(index);
-			if (team) {
-				if (team->House == Class->House && team->IsPrebuilt && (!team->IsAutocreate || IsAlerted)) {
-					for (int subindex = 0; subindex < team->ClassCount; subindex++) {
-						if (team->Members[subindex].Class->What_Am_I() == RTTI_VESSELTYPE) {
-							int subtype = ((VesselTypeClass const *)(team->Members[subindex].Class))->Type;
-							counter[subtype] = max(counter[subtype], team->Members[subindex].Quantity);
-						}
+			TeamTypeClass const* team = TeamTypes.Ptr(index);
+			if (team != NULL && team->House == Class->House && team->IsPrebuilt && (!team->IsAutocreate || IsAlerted)) {
+				for (int subindex = 0; subindex < team->ClassCount; subindex++) {
+					TechnoTypeClass const* memtype = team->Members[subindex].Class;
+
+					if (memtype->What_Am_I() == RTTI_VESSELTYPE) {
+						int subtype = ((VesselTypeClass const*)memtype)->Type;
+						counter[subtype] = max(counter[subtype], team->Members[subindex].Quantity);
 					}
 				}
 			}
 		}
 
 		/*
-		**	Reduce the theoretical maximum by the actual number of objects currently
-		**	in play.
-		*/
-		for (int vindex = 0; vindex < Vessels.Count(); vindex++) {
-			VesselClass * unit = Vessels.Ptr(vindex);
-			if (unit != NULL && unit->Is_Recruitable(this) && counter[unit->Class->Type] > 0) {
-				counter[unit->Class->Type]--;
-			}
-		}
-
-		/*
-		**	Pick to build the most needed object but don't consider those object that
+		**	Pick to build the most needed object but don't consider those objects that
 		**	can't be built because of scenario restrictions or insufficient cash.
 		*/
 		int bestval = -1;
 		int bestcount = 0;
 		VesselType bestlist[VESSEL_COUNT];
-		for (VesselType utype = VESSEL_FIRST; utype < VESSEL_COUNT; utype++) {
-			if (counter[utype] > 0 && Can_Build(&VesselTypeClass::As_Reference(utype), Class->House) && VesselTypeClass::As_Reference(utype).Cost_Of() <= Available_Money()) {
-				if (bestval == -1 || bestval < counter[utype]) {
-					bestval = counter[utype];
+		for (VesselType vtype = VESSEL_FIRST; vtype < VESSEL_COUNT; vtype++) {
+			if (counter[vtype] > 0 && Can_Build(&VesselTypeClass::As_Reference(vtype), Class->House) && VesselTypeClass::As_Reference(vtype).Cost_Of() <= Available_Money()) {
+				if (bestval == -1 || bestval < counter[vtype]) {
+					bestval = counter[vtype];
 					bestcount = 0;
 				}
-				bestlist[bestcount++] = utype;
+				bestlist[bestcount++] = vtype;
 			}
 		}
 
@@ -6362,12 +6394,41 @@ int HouseClass::AI_Vessel(void)
 		**	The unit type to build is now known. Fetch a pointer to the techno type class.
 		*/
 		if (bestcount) {
-			BuildVessel = bestlist[Random_Pick(0, bestcount-1)];
+			BuildVessel = bestlist[Random_Pick(0, bestcount - 1)];
 		}
 	}
 
 	if (IsBaseBuilding) {
-		BuildVessel = VESSEL_NONE;
+
+		int counter[VESSEL_COUNT];
+		int total = 0;
+		VesselType index;
+		for (index = VESSEL_FIRST; index < VESSEL_COUNT; index++) {
+			VesselTypeClass const* vtype = &VesselTypeClass::As_Reference(index);
+			if (Can_Build(vtype, ActLike) && vtype->PrimaryWeapon != NULL) {
+				if (vtype->SecondaryWeapon != NULL) {
+					counter[index] = 2; //expensive unit
+				}
+				else {
+					counter[index] = 1; //cheaper unit
+				}
+			}
+			else {
+				counter[index] = 0;
+			}
+			total += counter[index];
+		}
+
+		if (total > 0) {
+			int choice = Random_Pick(0, total - 1);
+			for (index = VESSEL_FIRST; index < VESSEL_COUNT; index++) {
+				if (choice < counter[index]) {
+					BuildVessel = index;
+					break;
+				}
+				choice -= counter[index];
+			}
+		}
 	}
 
 	return(TICKS_PER_SECOND);
@@ -6606,7 +6667,7 @@ int HouseClass::AI_Aircraft(void)
 		**  By Bast75:
 		**  If AI almost runs out of cash, it shouldn't spend cash on this.
 		**/
-		if (Tiberium < 1000) return(TICKS_PER_SECOND);
+		if (Tiberium < 2000) return(TICKS_PER_SECOND);
 		//  end of saving cash.
 
 		if (Can_Build(&AircraftTypeClass::As_Reference(AIRCRAFT_LONGBOW), ActLike) &&
