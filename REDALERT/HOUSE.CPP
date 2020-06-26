@@ -1869,6 +1869,14 @@ void HouseClass::Harvested(unsigned tiberium)
 
 	long oldtib = Tiberium;
 
+	/**
+	** Added by Bast75
+	** Give the AI a bit extra cash on unloading harvesters. Just to make it harder for the player. :-)
+	** I believe in RA2 this was called a Virtual Purrifier
+	**/
+	if (!IsHuman) {
+		tiberium = (int)(tiberium * 2);
+	}
 	Tiberium += tiberium;
 	if (Tiberium > Capacity) {
 		Tiberium = Capacity;
@@ -5301,7 +5309,8 @@ UrgencyType HouseClass::Check_Lower_Power(void) const
 {
 	assert(Houses.ID(this) == ID);
 
-	if (Power > Drain+300) {
+//	if (Power > Drain+300) { // Changed by Bast75, why sell power so soon? It's handy to have reserve.
+	if (Power > Drain + 300 + Rule.PowerSurplus) {
 		return(URGENCY_LOW);
 	}
 	return(URGENCY_NONE);
@@ -5320,7 +5329,8 @@ UrgencyType HouseClass::Check_Raise_Power(void) const
 
 	UrgencyType urgency = URGENCY_NONE;
 
-	if (Power_Fraction() < Rule.PowerEmergencyFraction && Power < Drain - 400) {
+//	if (Power_Fraction() < Rule.PowerEmergencyFraction && Power < Drain - 400) { // By Bast75, make low power more prio
+	if (Power_Fraction() < Rule.PowerEmergencyFraction && Power < Drain) {
 //	if (Power_Fraction() < Rule.PowerEmergencyFraction && (BQuantity[STRUCT_CONST] == 0 || Available_Money() < 200 || Power < Drain-400)) {
 		urgency = URGENCY_MEDIUM;
 		if (State == STATE_ATTACKED) {
@@ -5508,11 +5518,11 @@ bool HouseClass::AI_Raise_Power(UrgencyType urgency) const
 		UrgencyType Urgency;
 	} _types[] = {
 		{STRUCT_CHRONOSPHERE, URGENCY_LOW},
-		{STRUCT_SHIP_YARD, URGENCY_LOW},
-		{STRUCT_SUB_PEN, URGENCY_LOW},
-		{STRUCT_ADVANCED_TECH, URGENCY_LOW},
+		{STRUCT_SHIP_YARD, URGENCY_MEDIUM}, // Changed by Bast75, don't sell this type so fast....
+		{STRUCT_SUB_PEN, URGENCY_MEDIUM}, // Changed by Bast75, don't sell this type so fast....
+		{STRUCT_ADVANCED_TECH, URGENCY_MEDIUM}, // Changed by Bast75, don't sell this type so fast....
 		{STRUCT_FORWARD_COM, URGENCY_LOW},
-		{STRUCT_SOVIET_TECH, URGENCY_LOW},
+		{STRUCT_SOVIET_TECH, URGENCY_MEDIUM},// Changed by Bast75, don't sell this type so fast....
 		{STRUCT_IRON_CURTAIN, URGENCY_MEDIUM},
 		{STRUCT_RADAR, URGENCY_MEDIUM},
 		{STRUCT_REPAIR, URGENCY_MEDIUM},
@@ -5725,7 +5735,8 @@ int HouseClass::AI_Building(void)
 		for (HousesType h = HOUSE_FIRST; h < HOUSE_COUNT; h++) {
 			HouseClass const * hptr = HouseClass::As_Pointer(h);
 
-			if (hptr != NULL && hptr->IsActive && hptr->IsHuman && quant < hptr->CurBuildings) {
+//			if (hptr != NULL && hptr->IsActive && hptr->IsHuman && quant < hptr->CurBuildings) { // By Bast75, why only grow on Human house count? Check al other players!!!
+			if (hptr != NULL && hptr->IsActive && quant < hptr->CurBuildings) {
 				quant = hptr->CurBuildings;
 			}
 		}
@@ -5747,11 +5758,23 @@ int HouseClass::AI_Building(void)
 		}
 
 		level = Control.TechLevel;
+		unsigned int current;
 
-		/*
-		**	Try to build a power plant if there is insufficient power and there is enough
-		**	money available.
-		*/
+		// Changed by Bast75, shuffled the order, prio's and more to make the AI faster and stronger.
+
+		//First check if enemy has Naval:  VesselTotals
+		bool EnemyHasNaval = false;
+		if (enemy != NULL) {
+			if (Does_Enemy_Building_Exist(STRUCT_SUB_PEN) || Does_Enemy_Building_Exist(STRUCT_SHIP_YARD)) {
+				EnemyHasNaval = true;
+			}
+			if (enemy->VesselTotals > 0)
+			{
+				EnemyHasNaval = true;
+			}
+		}
+
+		//  Power plants
 		b = &BuildingTypeClass::As_Reference(STRUCT_ADVANCED_POWER);
 		if (Can_Build(b, ActLike) && Power <= Drain+Rule.PowerSurplus && b->Cost_Of() < money) {
 			choiceptr = BuildChoice.Alloc();
@@ -5759,35 +5782,43 @@ int HouseClass::AI_Building(void)
 				*choiceptr = BuildChoiceClass(BQuantity[STRUCT_REFINERY] == 0 ? URGENCY_LOW : URGENCY_MEDIUM, b->Type);
 			}
 		} else {
-			b = &BuildingTypeClass::As_Reference(STRUCT_POWER);
-			if (Can_Build(b, ActLike) && Power <= Drain+Rule.PowerSurplus && b->Cost_Of() < money) {
-				choiceptr = BuildChoice.Alloc();
-				if (choiceptr != NULL) {
-					*choiceptr = BuildChoiceClass(BQuantity[STRUCT_REFINERY] == 0 ? URGENCY_LOW : URGENCY_MEDIUM, b->Type);
+			if (BQuantity[STRUCT_POWER] != 1 || BQuantity[STRUCT_REFINERY] > 0)
+			{
+				b = &BuildingTypeClass::As_Reference(STRUCT_POWER);
+				if (Can_Build(b, ActLike) && Power <= Drain + Rule.PowerSurplus && b->Cost_Of() < money) {
+					choiceptr = BuildChoice.Alloc();
+					if (choiceptr != NULL) {
+						*choiceptr = BuildChoiceClass(BQuantity[STRUCT_REFINERY] == 0 ? URGENCY_LOW : URGENCY_MEDIUM, b->Type);
+					}
 				}
 			}
 		}
 
-		/*
-		**	Build a refinery if there isn't one already available.
-		*/
-		unsigned int current = BQuantity[STRUCT_REFINERY];
-		if (!IsTiberiumShort && current < Round_Up(Rule.RefineryRatio*fixed(CurBuildings)) && current < (unsigned)Rule.RefineryLimit) {
+		//  Build refineries
+		current = BQuantity[STRUCT_REFINERY];
+		if (!IsTiberiumShort && current < Round_Up(Rule.RefineryRatio * fixed(CurBuildings)) && current < (unsigned)Rule.RefineryLimit) {
 			b = &BuildingTypeClass::As_Reference(STRUCT_REFINERY);
 			if (Can_Build(b, ActLike) && (money > b->Cost_Of() || hasincome)) {
 				choiceptr = BuildChoice.Alloc();
 				if (choiceptr != NULL) {
-					*choiceptr = BuildChoiceClass(BQuantity[STRUCT_REFINERY] == 0 ? URGENCY_HIGH : URGENCY_MEDIUM, b->Type);
+					//*choiceptr = BuildChoiceClass(BQuantity[STRUCT_REFINERY] == 0 ? URGENCY_HIGH : URGENCY_MEDIUM, b->Type);
+					*choiceptr = BuildChoiceClass(BQuantity[STRUCT_REFINERY] < 2 ? URGENCY_HIGH : URGENCY_MEDIUM, b->Type); // By Bast75, we start by making 2 urgent!!!
 				}
 			}
 		}
 
-		/*
-		**	Always make sure there is a barracks available, but only if there
-		**	will be sufficient money to train troopers.
-		*/
+		//  Storage (SILO) if needed
+		b = &BuildingTypeClass::As_Reference(STRUCT_STORAGE);
+		if (Can_Build(b, ActLike) && Tiberium > Capacity && b->Cost_Of() < money) {
+			choiceptr = BuildChoice.Alloc();
+			if (choiceptr != NULL) {
+				*choiceptr = BuildChoiceClass(URGENCY_HIGH, b->Type);
+			}
+		}
+
+		//  Tent/Barracks
 		current = BQuantity[STRUCT_BARRACKS] + BQuantity[STRUCT_TENT];
-		if (current < Round_Up(Rule.BarracksRatio*fixed(CurBuildings)) && current < (unsigned)Rule.BarracksLimit && (money > 300 || hasincome)) {
+		if (current < Round_Up(Rule.BarracksRatio*fixed(CurBuildings)) && current < (unsigned)Rule.BarracksLimit && b->Cost_Of() < money) {
 			b = &BuildingTypeClass::As_Reference(STRUCT_BARRACKS);
 			if (Can_Build(b, ActLike) && (b->Cost_Of() < money || hasincome)) {
 				choiceptr = BuildChoice.Alloc();
@@ -5805,9 +5836,8 @@ int HouseClass::AI_Building(void)
 			}
 		}
 
-		/*
-		**	Try to build one dog house.
-		*/
+		/*** By Bast75: Disabled, the AI cant build dogs somehow. So why spend cash on the Kennel?
+		//  dog house.
 		current = BQuantity[STRUCT_KENNEL];
 		if (current < 1 && (money > 300 || hasincome)) {
 			b = &BuildingTypeClass::As_Reference(STRUCT_KENNEL);
@@ -5818,71 +5848,32 @@ int HouseClass::AI_Building(void)
 				}
 			}
 		}
+		***/
 
-		/*
-		**	Try to build one gap generator.
-		*/
-		current = BQuantity[STRUCT_GAP];
-		if (current < 1 && Power_Fraction() >= 1 && hasincome) {
-			b = &BuildingTypeClass::As_Reference(STRUCT_GAP);
-			if (Can_Build(b, ActLike) && (b->Cost_Of() < money || hasincome)) {
-				choiceptr = BuildChoice.Alloc();
-				if (choiceptr != NULL) {
-					*choiceptr = BuildChoiceClass(URGENCY_MEDIUM, b->Type);
-				}
-			}
-		}
-
-		/*
-		**	A source of combat vehicles is always needed, but only if there will
-		**	be sufficient money to build vehicles.
-		*/
+		//  WarFactory
 		current = BQuantity[STRUCT_WEAP];
-		if (current < Round_Up(Rule.WarRatio*fixed(CurBuildings)) && current < (unsigned)Rule.WarLimit && (money > 2000 || hasincome)) {
+		if (current < Round_Up(Rule.WarRatio*fixed(CurBuildings)) && current < (unsigned)Rule.WarLimit && (money > 2000)) {
 			b = &BuildingTypeClass::As_Reference(STRUCT_WEAP);
-			if (Can_Build(b, ActLike) && (b->Cost_Of() < money || hasincome)) {
+			if (Can_Build(b, ActLike) && (b->Cost_Of() < money)) {
 				choiceptr = BuildChoice.Alloc();
 				if (choiceptr != NULL) {
-					*choiceptr = BuildChoiceClass(current > 0 ? URGENCY_LOW : URGENCY_MEDIUM, b->Type);
+					*choiceptr = BuildChoiceClass(current < 2 ? URGENCY_MEDIUM : URGENCY_LOW, b->Type);
 				}
 			}
 		}
 
-		/*
-		**	Always build up some base defense.
-		*/
-		current = BQuantity[STRUCT_PILLBOX] + BQuantity[STRUCT_CAMOPILLBOX] + BQuantity[STRUCT_TURRET] + BQuantity[STRUCT_FLAME_TURRET];
-		if (current < Round_Up(Rule.DefenseRatio*fixed(CurBuildings)) && current < (unsigned)Rule.DefenseLimit) {
-			b = &BuildingTypeClass::As_Reference(STRUCT_FLAME_TURRET);
-			if (Can_Build(b, ActLike) && (b->Cost_Of() < money || hasincome)) {
+		//  Radar
+		if (BQuantity[STRUCT_RADAR] == 0) {
+			b = &BuildingTypeClass::As_Reference(STRUCT_RADAR);
+			if (Can_Build(b, ActLike) && (b->Cost_Of() < money)) {
 				choiceptr = BuildChoice.Alloc();
 				if (choiceptr != NULL) {
 					*choiceptr = BuildChoiceClass(URGENCY_MEDIUM, b->Type);
 				}
-			} else {
-				if (Percent_Chance(50)) {
-					b = &BuildingTypeClass::As_Reference(STRUCT_PILLBOX);
-					if (Can_Build(b, ActLike) && (b->Cost_Of() < money || hasincome)) {
-						choiceptr = BuildChoice.Alloc();
-						if (choiceptr != NULL) {
-							*choiceptr = BuildChoiceClass(URGENCY_MEDIUM, b->Type);
-						}
-					}
-				} else {
-					b = &BuildingTypeClass::As_Reference(STRUCT_TURRET);
-					if (Can_Build(b, ActLike) && (b->Cost_Of() < money || hasincome)) {
-						choiceptr = BuildChoice.Alloc();
-						if (choiceptr != NULL) {
-							*choiceptr = BuildChoiceClass(URGENCY_MEDIUM, b->Type);
-						}
-					}
-				}
 			}
 		}
 
-		/*
-		**	Build some air defense.
-		*/
+		//  air defense if needed
 		current = BQuantity[STRUCT_SAM] + BQuantity[STRUCT_AAGUN];
 		if (current < Round_Up(Rule.AARatio*fixed(CurBuildings)) && current < (unsigned)Rule.AALimit) {
 
@@ -5907,26 +5898,15 @@ int HouseClass::AI_Building(void)
 			}
 
 			if (airthreat) {
-
-				if (BQuantity[STRUCT_RADAR] == 0) {
-					b = &BuildingTypeClass::As_Reference(STRUCT_RADAR);
-					if (Can_Build(b, ActLike) && (b->Cost_Of() < money || hasincome)) {
-						choiceptr = BuildChoice.Alloc();
-						if (choiceptr != NULL) {
-							*choiceptr = BuildChoiceClass(URGENCY_HIGH, b->Type);
-						}
-					}
-				}
-
 				b = &BuildingTypeClass::As_Reference(STRUCT_SAM);
-				if (Can_Build(b, ActLike) && (b->Cost_Of() < money || hasincome)) {
+				if (Can_Build(b, ActLike) && (b->Cost_Of() < money)) {
 					choiceptr = BuildChoice.Alloc();
 					if (choiceptr != NULL) {
 						*choiceptr = BuildChoiceClass((current < (unsigned)threat_quantity) ? URGENCY_HIGH : URGENCY_MEDIUM, b->Type);
 					}
 				} else {
 					b = &BuildingTypeClass::As_Reference(STRUCT_AAGUN);
-					if (Can_Build(b, ActLike) && (b->Cost_Of() < money || hasincome)) {
+					if (Can_Build(b, ActLike) && (b->Cost_Of() < money)) {
 						choiceptr = BuildChoice.Alloc();
 						if (choiceptr != NULL) {
 							*choiceptr = BuildChoiceClass((current < (unsigned)threat_quantity) ? URGENCY_HIGH : URGENCY_MEDIUM, b->Type);
@@ -5936,34 +5916,18 @@ int HouseClass::AI_Building(void)
 			}
 		}
 
-		/*
-		**	Advanced base defense would be good.
-		*/
-		current = BQuantity[STRUCT_TESLA];
-		if (current < Round_Up(Rule.TeslaRatio*fixed(CurBuildings)) && current < (unsigned)Rule.TeslaLimit) {
-			b = &BuildingTypeClass::As_Reference(STRUCT_TESLA);
-			if (Can_Build(b, ActLike) && (b->Cost_Of() < money || hasincome) && Power_Fraction() >= 1) {
-				choiceptr = BuildChoice.Alloc();
-				if (choiceptr != NULL) {
-					*choiceptr = BuildChoiceClass(URGENCY_MEDIUM, b->Type);
-				}
-			}
-		}
-
-		/*
-		**	Build a tech center as soon as possible.
-		*/
+		//  Tech center as soon as possible.
 		current = BQuantity[STRUCT_ADVANCED_TECH] + BQuantity[STRUCT_SOVIET_TECH];
 		if (current < 1) {
 			b = &BuildingTypeClass::As_Reference(STRUCT_ADVANCED_TECH);
-			if (Can_Build(b, ActLike) && (b->Cost_Of() < money || hasincome) && Power_Fraction() >= 1) {
+			if (Can_Build(b, ActLike) && (b->Cost_Of() < money) && Power_Fraction() >= 1) {
 				choiceptr = BuildChoice.Alloc();
 				if (choiceptr != NULL) {
 					*choiceptr = BuildChoiceClass(URGENCY_MEDIUM, b->Type);
 				}
 			} else {
 				b = &BuildingTypeClass::As_Reference(STRUCT_SOVIET_TECH);
-				if (Can_Build(b, ActLike) && (b->Cost_Of() < money || hasincome) && Power_Fraction() >= 1) {
+				if (Can_Build(b, ActLike) && (b->Cost_Of() < money) && Power_Fraction() >= 1) {
 					choiceptr = BuildChoice.Alloc();
 					if (choiceptr != NULL) {
 						*choiceptr = BuildChoiceClass(URGENCY_MEDIUM, b->Type);
@@ -5972,43 +5936,141 @@ int HouseClass::AI_Building(void)
 			}
 		}
 
-		/*
-		**	A helipad would be good.
-		*/
+		//  Gap generator.
+		current = BQuantity[STRUCT_GAP];
+		if (current < 3 && Power_Fraction() >= 1) {
+			b = &BuildingTypeClass::As_Reference(STRUCT_GAP);
+			if (Can_Build(b, ActLike) && (b->Cost_Of() < money)) {
+				choiceptr = BuildChoice.Alloc();
+				if (choiceptr != NULL) {
+					*choiceptr = BuildChoiceClass(current == 0 ? URGENCY_MEDIUM : URGENCY_LOW, b->Type);
+				}
+			}
+		}
+
+		//  helipad would be good.
 		current = BQuantity[STRUCT_HELIPAD];
 		if (current < Round_Up(Rule.HelipadRatio*fixed(CurBuildings)) && current < (unsigned)Rule.HelipadLimit) {
 			b = &BuildingTypeClass::As_Reference(STRUCT_HELIPAD);
-			if (Can_Build(b, ActLike) && (b->Cost_Of() < money || hasincome)) {
+			if (Can_Build(b, ActLike) && (b->Cost_Of() < money)) {
 				choiceptr = BuildChoice.Alloc();
 				if (choiceptr != NULL) {
 					int threat_quantity = 0;
 					if (enemy != NULL) {
 						threat_quantity = enemy->CurAircraft;
 					}
-
+					if (EnemyHasNaval) {
+						threat_quantity += 4; // Make extra air stuff if enemy has naval stuf also (Naval map?)
+					}
 					*choiceptr = BuildChoiceClass((CurAircraft < (unsigned)threat_quantity) ? URGENCY_HIGH : URGENCY_MEDIUM, b->Type);
 				}
 			}
 		}
 
-		/*
-		**	An airstrip would be good.
-		*/
+		//  airstrip
 		current = BQuantity[STRUCT_AIRSTRIP];
 		if (current < Round_Up(Rule.AirstripRatio*fixed(CurBuildings)) && current < (unsigned)Rule.AirstripLimit) {
 			b = &BuildingTypeClass::As_Reference(STRUCT_AIRSTRIP);
-			if (Can_Build(b, ActLike) && (b->Cost_Of() < money || hasincome)) {
+			if (Can_Build(b, ActLike) && (b->Cost_Of() < money)) {
 				choiceptr = BuildChoice.Alloc();
 				if (choiceptr != NULL) {
 					int threat_quantity = 0;
 					if (enemy != NULL) {
 						threat_quantity = enemy->CurAircraft;
 					}
-
+					if (EnemyHasNaval) {
+						threat_quantity += 4; // Make extra air stuff if enemy has naval stuf also (Naval map?)
+					}
 					*choiceptr = BuildChoiceClass((CurAircraft < (unsigned)threat_quantity) ? URGENCY_HIGH : URGENCY_MEDIUM, b->Type);
 				}
 			}
 		}
+
+		//  naval
+		current = BQuantity[STRUCT_SHIP_YARD] + BQuantity[STRUCT_SUB_PEN];
+		if ((current < Round_Up(Rule.WarRatio * fixed(CurBuildings)) && EnemyHasNaval) && current < 2) {
+			b = &BuildingTypeClass::As_Reference(STRUCT_SHIP_YARD);
+			if (Can_Build(b, ActLike) && (b->Cost_Of() < money)) {
+				choiceptr = BuildChoice.Alloc();
+				if (choiceptr != NULL) {
+					if (EnemyHasNaval) {
+						*choiceptr = BuildChoiceClass(current == 0 ? URGENCY_HIGH : URGENCY_MEDIUM, b->Type);
+					}
+					else {
+						*choiceptr = BuildChoiceClass(current == 0 ? URGENCY_MEDIUM : URGENCY_LOW, b->Type);
+					}
+				}
+			}
+			else {
+				b = &BuildingTypeClass::As_Reference(STRUCT_SUB_PEN);
+				choiceptr = BuildChoice.Alloc();
+				if (choiceptr != NULL) {
+					if (EnemyHasNaval) {
+						*choiceptr = BuildChoiceClass(current == 0 ? URGENCY_HIGH : URGENCY_MEDIUM, b->Type);
+					}
+					else {
+						*choiceptr = BuildChoiceClass(current == 0 ? URGENCY_MEDIUM : URGENCY_LOW, b->Type);
+					}
+				}
+			}
+		}
+
+		//  Build a Nuclear Missile Silo (Nuke).
+		current = BQuantity[STRUCT_MSLO];
+		if (current == 0) {
+			b = &BuildingTypeClass::As_Reference(STRUCT_MSLO);
+			if (Can_Build(b, ActLike) && b->Cost_Of() < money) {
+				choiceptr = BuildChoice.Alloc();
+				if (choiceptr) {
+					*choiceptr = BuildChoiceClass(URGENCY_MEDIUM, b->Type);
+				}
+			}
+		}
+
+		//  Base defense.
+		current = BQuantity[STRUCT_PILLBOX] + BQuantity[STRUCT_CAMOPILLBOX] + BQuantity[STRUCT_TURRET] + BQuantity[STRUCT_FLAME_TURRET];
+		if (current < Round_Up(Rule.DefenseRatio * fixed(CurBuildings)) && current < (unsigned)Rule.DefenseLimit) {
+			b = &BuildingTypeClass::As_Reference(STRUCT_FLAME_TURRET);
+			if (Can_Build(b, ActLike) && (b->Cost_Of() < money)) {
+				choiceptr = BuildChoice.Alloc();
+				if (choiceptr != NULL) {
+					*choiceptr = BuildChoiceClass(current < 2 ? URGENCY_HIGH : URGENCY_MEDIUM, b->Type);
+				}
+			}
+			else {
+				if (Percent_Chance(50)) {
+					b = &BuildingTypeClass::As_Reference(STRUCT_PILLBOX);
+					if (Can_Build(b, ActLike) && (b->Cost_Of() < money)) {
+						choiceptr = BuildChoice.Alloc();
+						if (choiceptr != NULL) {
+							*choiceptr = BuildChoiceClass(current < 2 ? URGENCY_HIGH : URGENCY_MEDIUM, b->Type);
+						}
+					}
+				}
+				else {
+					b = &BuildingTypeClass::As_Reference(STRUCT_TURRET);
+					if (Can_Build(b, ActLike) && (b->Cost_Of() < money)) {
+						choiceptr = BuildChoice.Alloc();
+						if (choiceptr != NULL) {
+							*choiceptr = BuildChoiceClass(current < 2 ? URGENCY_HIGH : URGENCY_MEDIUM, b->Type);
+						}
+					}
+				}
+			}
+		}
+
+		//  Tesla coils
+		current = BQuantity[STRUCT_TESLA];
+		if (current < Round_Up(Rule.TeslaRatio*fixed(CurBuildings)) && current < (unsigned)Rule.TeslaLimit) {
+			b = &BuildingTypeClass::As_Reference(STRUCT_TESLA);
+			if (Can_Build(b, ActLike) && (b->Cost_Of() < money) && Power_Fraction() >= 1) {
+				choiceptr = BuildChoice.Alloc();
+				if (choiceptr != NULL) {
+					*choiceptr = BuildChoiceClass(current < 2 ? URGENCY_HIGH : URGENCY_MEDIUM, b->Type);
+				}
+			}
+		}
+
 
 #ifdef OLD
 		/*
@@ -6071,12 +6133,21 @@ int HouseClass::AI_Unit(void)
 	**	A computer controlled house will try to build a replacement
 	**	harvester if possible.
 	*/
-	if (IQ >= Rule.IQHarvester && !IsTiberiumShort && !IsHuman && BQuantity[STRUCT_REFINERY] > UQuantity[UNIT_HARVESTER] && Difficulty != DIFF_HARD) {
+//	if (IQ >= Rule.IQHarvester && !IsTiberiumShort && !IsHuman && BQuantity[STRUCT_REFINERY] > UQuantity[UNIT_HARVESTER] && Difficulty != DIFF_HARD) {
+	//By Bast75: Make 2 harvesters for each Refinery.
+	if (IQ >= Rule.IQHarvester && !IsTiberiumShort && !IsHuman && UQuantity[UNIT_HARVESTER] < (BQuantity[STRUCT_REFINERY] * 2) && Difficulty != DIFF_HARD) {
 		if (UnitTypeClass::As_Reference(UNIT_HARVESTER).Level <= (unsigned)Control.TechLevel) {
 			BuildUnit = UNIT_HARVESTER;
 			return(TICKS_PER_SECOND);
 		}
 	}
+
+	/**
+	**  By Bast75:
+	**  If AI almost runs out of cash, it shouldn't spend cash on this. (Except the harvesters above)
+	**/
+	if (Tiberium < 1000) return(TICKS_PER_SECOND);
+	//  end of saving cash.
 
 	if (Session.Type == GAME_NORMAL) {
 
@@ -6202,6 +6273,13 @@ int HouseClass::AI_Vessel(void)
 		return(TICKS_PER_SECOND);
 	}
 
+	/**
+	**  By Bast75:
+	**  If AI almost runs out of cash, it shouldn't spend cash on this.
+	**/
+	if (Tiberium < 1000) return(TICKS_PER_SECOND);
+	//  end of saving cash.
+
 	if (Session.Type == GAME_NORMAL) {
 
 		int counter[VESSEL_COUNT];
@@ -6322,6 +6400,13 @@ int HouseClass::AI_Infantry(void)
 
 	if (BuildInfantry != INFANTRY_NONE) return(TICKS_PER_SECOND);
 	if (CurInfantry >= Control.MaxInfantry) return(TICKS_PER_SECOND);
+
+	/**
+	**  By Bast75:
+	**  If AI almost runs out of cash, it shouldn't spend cash on this.
+	**/
+	if (Tiberium < 1000) return(TICKS_PER_SECOND);
+	//  end of saving cash.
 
 	if (Session.Type == GAME_NORMAL) {
 		TechnoTypeClass const * techno = 0;
@@ -6520,6 +6605,13 @@ int HouseClass::AI_Aircraft(void)
 	if (!IsHuman && IQ >= Rule.IQAircraft) {
 		if (BuildAircraft != AIRCRAFT_NONE) return(TICKS_PER_SECOND);
 		if (CurAircraft >= Control.MaxAircraft) return(TICKS_PER_SECOND);
+
+		/**
+		**  By Bast75:
+		**  If AI almost runs out of cash, it shouldn't spend cash on this.
+		**/
+		if (Tiberium < 1000) return(TICKS_PER_SECOND);
+		//  end of saving cash.
 
 		if (Can_Build(&AircraftTypeClass::As_Reference(AIRCRAFT_LONGBOW), ActLike) &&
 				 AircraftTypeClass::As_Reference(AIRCRAFT_LONGBOW).Level <= (unsigned)Control.TechLevel &&
