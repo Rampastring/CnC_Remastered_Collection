@@ -1890,7 +1890,7 @@ void TechnoClass::AI(void)
 
 	if (Is_Owned_By_Player() && (What_Am_I() == RTTI_UNIT || What_Am_I() == RTTI_INFANTRY || What_Am_I() == RTTI_AIRCRAFT) && AttackMove == true) {
 
-		// As we are in attack move, there must be a navigation taregt. If RememberedNavCom is initial, this means we have to remember it. 
+		// As we are in attack move, there must be a navigation target. If RememberedNavCom is initial, this means we have to remember it. 
 		// Because it takes one tick more to update the NavCom, than this method is even call, we have to wait one tick before remembering.
 		// And we only remember once, because NavCom might be updated while pursuing enemies on the way to the target
 		if (RememberedNavCom == 0) {
@@ -3070,7 +3070,6 @@ ResultType TechnoClass::Take_Damage(int & damage, int distance, WarheadType warh
 					unit->RememberedTarCom = 0;
 					unit->Assign_Destination(unit->RememberedNavCom);
 					unit->Set_Mission(MISSION_MOVE);
-
 				}
 			}
 
@@ -3082,9 +3081,7 @@ ResultType TechnoClass::Take_Damage(int & damage, int distance, WarheadType warh
 					inf->RememberedTarCom = 0;
 					inf->Assign_Destination(inf->RememberedNavCom);
 					inf->Set_Mission(MISSION_MOVE);
-
 				}
-
 			}
 
 			/*

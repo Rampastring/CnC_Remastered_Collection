@@ -1902,9 +1902,10 @@ void InfantryClass::Enter_Idle_Mode(bool )
 		}
 	}
 
-	if (order == MISSION_GUARD) {
+	if (order == MISSION_GUARD && AttackMove && House->IsHuman && Distance(RememberedNavCom) < 200) {
 		// Attack Move by Butch: As Infantry does GUARD at the end, the Mission_Move method where usually the reset starts is never called
-		// therefore this hack. Maybe just necesasry for Red Alert, but I'll leave it in
+		// therefore this hack. I also observed, that somethimes the Mission_Move method is hit indeed, namely when
+		// the unit is not able to reach it's target
 		ResetAttackMove();
 	}
 

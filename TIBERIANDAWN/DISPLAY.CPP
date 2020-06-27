@@ -3554,6 +3554,10 @@ void DisplayClass::Mouse_Left_Up(bool shadow, ObjectClass * object, ActionType a
 				Set_Default_Mouse(MOUSE_AREA_GUARD, wwsmall);
 				break;
 
+			case ACTION_ATTACKMOVE:
+				Set_Default_Mouse(MOUSE_CAN_ATTACK, wwsmall);
+				break;
+
 			case ACTION_NONE:
 				Set_Default_Mouse(MOUSE_NORMAL, wwsmall);
 				break;
@@ -3610,6 +3614,10 @@ void DisplayClass::Mouse_Left_Up(bool shadow, ObjectClass * object, ActionType a
 			case ACTION_TOGGLE_SELECT:
 			case ACTION_SELECT:
 				Set_Default_Mouse(MOUSE_CAN_SELECT, wwsmall);
+				break;
+
+			case ACTION_ATTACKMOVE:
+				Set_Default_Mouse(MOUSE_CAN_ATTACK, wwsmall);
 				break;
 
 			case ACTION_MOVE:
@@ -3754,7 +3762,6 @@ void DisplayClass::Mouse_Left_Up(bool shadow, ObjectClass * object, ActionType a
 	}
 #endif
 }
-
 
 /***********************************************************************************************
  * DisplayClass::Mouse_Left_Release -- Handles the left mouse button release.                  *
