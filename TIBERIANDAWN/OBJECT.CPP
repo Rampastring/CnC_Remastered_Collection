@@ -1286,6 +1286,8 @@ void ObjectClass::Detach_All(bool all)
  *=============================================================================================*/
 void ObjectClass::Detach_This_From_All(TARGET target, bool all)
 {
+	// Attack move by Butch: Note to myself, this routine is called every tick as soon as a unit starts
+	// moving (for whatever reason...)
 	int index;
 	if (Target_Legal(target)) {
 

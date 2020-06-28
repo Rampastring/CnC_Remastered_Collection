@@ -1901,10 +1901,17 @@ void TechnoClass::AI(void)
 			}
 		}
 
+		if (RememberedNavCom && !TarCom && ((FootClass*)this)->Speed == 0) {
+			Assign_Destination(RememberedNavCom);
+			Set_Mission(MISSION_MOVE);
+		}
+
+
 		// If something is targeted, check if it's in shooting range. If not, and something else is forget it, as there might be better targets
 		if (TarCom) {
 			if (!In_Range(TarCom) && Target_Something_Nearby(THREAT_RANGE)) {
 				RememberedTarCom = 0;
+				TarComDelay++;
 			}
 		}
 
@@ -3066,21 +3073,16 @@ ResultType TechnoClass::Take_Damage(int & damage, int distance, WarheadType warh
 			// Attack Move by Butch: All vehicles who targeted this unit are send back moving to their initial coordinates, attack move is left active
 			for (int i = 0; i < Units.Count(); i++) {
 				FootClass * unit = Units.Ptr(i);
-				if (unit && unit->RememberedNavCom && As_Object(unit->RememberedTarCom) == this) {
+				if (unit && unit->AttackMove && As_Object(unit->RememberedTarCom) == this) {
 					unit->RememberedTarCom = 0;
-					unit->Assign_Destination(unit->RememberedNavCom);
-					unit->Set_Mission(MISSION_MOVE);
 				}
 			}
 
 			// Attack Move by Butch: All infantry who targeted this unit are send back moving to their initial coordinates
 			for (int i = 0; i < Infantry.Count(); i++) {
 				FootClass * inf = Infantry.Ptr(i);
-				if (inf && inf->RememberedNavCom && As_Object(inf->RememberedTarCom) == this) {
-					inf->Stop_Driver();
+				if (inf && inf->AttackMove && As_Object(inf->RememberedTarCom) == this) {
 					inf->RememberedTarCom = 0;
-					inf->Assign_Destination(inf->RememberedNavCom);
-					inf->Set_Mission(MISSION_MOVE);
 				}
 			}
 
