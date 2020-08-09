@@ -107,6 +107,7 @@ typedef enum {
 
 #define RANDOM_START_POSITION 0x7f
 
+#define KILL_PLAYER_ON_DISCONNECT 1
 
 
 
@@ -382,6 +383,8 @@ int MPlayerStartLocations[MAX_PLAYERS];
 bool MPSuperWeaponDisable = false;
 bool ShareAllyVisibility = true;
 bool UseGlyphXStartLocations = true;
+
+SpecialClass* SpecialBackup = NULL;
 
 
 int GetRandSeed()
@@ -799,6 +802,8 @@ extern "C" __declspec(dllexport) bool __cdecl CNC_Set_Multiplayer_Data(int scena
 
 	Special.IsEarlyWin = game_options.DestroyStructures;
 
+	Special.ModernBalance = game_options.ModernBalance;
+
 	/*
 	** Enable Counterstrike/Aftermath units
 	*/
@@ -842,6 +847,13 @@ extern "C" __declspec(dllexport) bool __cdecl CNC_Set_Multiplayer_Data(int scena
 	** Force smart defense always on for multiplayer/skirmish
 	*/
 	Rule.IsSmartDefense = true;
+
+	/*
+	** Backup special
+	*/
+	if (SpecialBackup != NULL) {
+		memcpy(SpecialBackup, &Special, sizeof(SpecialClass));
+	}
 
 	return true;
 }
@@ -1661,7 +1673,7 @@ extern "C" __declspec(dllexport) bool __cdecl CNC_Advance_Instance(uint64 player
 	if (Frame <= 10) {		// Don't spam forever, but useful to know that we actually started advancing
 		GlyphX_Debug_Print("CNC_Advance_Instance - RA");
 	}
-	
+
 	/*
 	** Shouldn't really need to do this, but I like the idea of always running the main loop in the context of the same player.
 	** Might make tbe bugs more repeatable and consistent. ST - 3/15/2019 11:58AM
@@ -1670,6 +1682,13 @@ extern "C" __declspec(dllexport) bool __cdecl CNC_Advance_Instance(uint64 player
 		DLLExportClass::Set_Player_Context(player_id);
 	} else {
 		DLLExportClass::Set_Player_Context(DLLExportClass::GlyphxPlayerIDs[0]);
+	}
+
+	/*
+	** Restore special from backup
+	*/
+	if (SpecialBackup != NULL) {
+		memcpy(&Special, SpecialBackup, sizeof(SpecialClass));
 	}
 
 #ifdef FIXIT_CSII	//	checked - ajw 9/28/98
@@ -1864,6 +1883,15 @@ extern "C" __declspec(dllexport) bool __cdecl CNC_Advance_Instance(uint64 player
 	//Sync_Delay();
 	//DLLExportClass::Set_Event_Callback(NULL);
 	Color_Cycle();
+	
+	
+	/*
+	** Don't respect GameActive. Game will end in multiplayer on win/loss
+	*/
+	if (GAME_TO_PLAY == GAME_GLYPHX_MULTIPLAYER) {
+		return true;
+	}
+
 	return(GameActive);
 }
 
@@ -1909,6 +1937,12 @@ extern "C" __declspec(dllexport) bool __cdecl CNC_Save_Load(bool save, const cha
 		}
 		
 		result = Load_Game(file_path_and_name);
+
+		// MBL 07.21.2020
+		if (result == false)
+		{
+			return false;
+		}
 		
 		DLLExportClass::Set_Player_Context(DLLExportClass::GlyphxPlayerIDs[0], true);
 		Set_Logic_Page(SeenBuff);
@@ -1999,16 +2033,32 @@ extern "C" __declspec(dllexport) void __cdecl CNC_Handle_Player_Switch_To_AI(uin
 		return;
 	}
 
-	HousesType house;
-	HouseClass *ptr;
-	
 	GlyphX_Debug_Print("CNC_Handle_Player_Switch_To_AI");
 	
 	if (GAME_TO_PLAY == GAME_NORMAL) {
 		return;
 	}
 
+#ifdef KILL_PLAYER_ON_DISCONNECT
+
+	/*
+	** Kill player's units on disconnect.
+	*/
 	if (player_id != 0) {
+		DLLExportClass::Set_Player_Context(player_id);
+
+		if (PlayerPtr) {
+			PlayerPtr->Flag_To_Die();
+		}
+	}
+
+#else //KILL_PLAYER_ON_DISCONNECT
+
+	if (player_id != 0) {
+		
+		HousesType house;
+  		HouseClass *ptr;
+	
 		DLLExportClass::Set_Player_Context(player_id);
 
 		if (PlayerPtr) {
@@ -2055,6 +2105,9 @@ extern "C" __declspec(dllexport) void __cdecl CNC_Handle_Player_Switch_To_AI(uin
 			}
 		}
 	}
+
+#endif //KILL_PLAYER_ON_DISCONNECT
+
 }
 
 
@@ -2110,6 +2163,11 @@ void DLLExportClass::Init(void)
 	CurrentLocalPlayerIndex = 0;
 
 	MessagesSent.clear();
+
+	if (SpecialBackup == NULL) {
+		SpecialBackup = new SpecialClass;
+	}
+	memcpy(SpecialBackup, &Special, sizeof(SpecialClass));
 }
 
 
@@ -2126,6 +2184,9 @@ void DLLExportClass::Init(void)
 **************************************************************************************************/
 void DLLExportClass::Shutdown(void)
 {
+	delete SpecialBackup;
+	SpecialBackup = NULL;
+
 	for (int i=0 ; i<ModSearchPaths.Count() ; i++) {
 		delete [] ModSearchPaths[i];
 	}
@@ -2898,12 +2959,24 @@ void DLLExportClass::On_Multiplayer_Game_Over(void)
 	event.GameOver.SabotagedStructureType = 0;
 	event.GameOver.TimerRemaining = -1;
 
-	// Trigger an event for each human player
-	for (int i=0 ; i<player_count; i++) {
+	// Trigger an event for each human player, winner first (even if it's an AI)
+	for (int i = 0; i < player_count; i++) {
 		HouseClass *player_ptr = HouseClass::As_Pointer(Session.Players[i]->Player.ID);
-		if (player_ptr->IsHuman) {
+		if (!player_ptr->IsDefeated) {
 			event.GlyphXPlayerID = Get_GlyphX_Player_ID(player_ptr);
-			event.GameOver.PlayerWins = !player_ptr->IsDefeated;
+			event.GameOver.IsHuman = player_ptr->IsHuman;
+			event.GameOver.PlayerWins = true;
+			event.GameOver.RemainingCredits = player_ptr->Available_Money();
+			EventCallback(event);
+		}
+	}
+
+	for (int i = 0; i < player_count; i++) {
+		HouseClass *player_ptr = HouseClass::As_Pointer(Session.Players[i]->Player.ID);
+		if (player_ptr->IsHuman && player_ptr->IsDefeated) {
+			event.GlyphXPlayerID = Get_GlyphX_Player_ID(player_ptr);
+			event.GameOver.IsHuman = true;
+			event.GameOver.PlayerWins = false;
 			event.GameOver.RemainingCredits = player_ptr->Available_Money();
 			EventCallback(event);
 		}
@@ -3220,6 +3293,7 @@ void DLL_Draw_Pip_Intercept(const ObjectClass* object, int pip)
 void DLLExportClass::DLL_Draw_Intercept(int shape_number, int x, int y, int width, int height, int flags, const ObjectClass *object, DirType rotation, long scale, const char *shape_file_name, char override_owner)
 {
 	CNCObjectStruct& new_object = ObjectList->Objects[TotalObjectCount + CurrentDrawCount];
+	memset(&new_object, 0, sizeof(new_object));
 	Convert_Type(object, new_object);
 	if (new_object.Type == UNKNOWN) {
 		return;
@@ -4135,6 +4209,10 @@ extern "C" __declspec(dllexport) void __cdecl CNC_Handle_Sidebar_Request(Sidebar
 	
 	switch (request_type) {
 		
+		// MBL 06.02.2020 - Changing right-click support for first put building on hold, and then subsequenct right-clicks to decrement that queue count for 1x or 5x; Then, 1x or 5x Left click will resume from hold		
+		// Handle and fall through to start construction (from hold state) below  
+		case SIDEBAR_REQUEST_START_CONSTRUCTION_MULTI:
+
 		case SIDEBAR_REQUEST_START_CONSTRUCTION:
 			DLLExportClass::Start_Construction(player_id, buildable_type, buildable_id);
 			break;
@@ -4358,6 +4436,8 @@ bool DLLExportClass::Get_Sidebar_State(uint64 player_id, unsigned char *buffer_i
 					return false;
 				}
 
+				memset(&sidebar_entry, 0, sizeof(sidebar_entry));
+
 				sidebar_entry.AssetName[0] = 0;
 				sidebar_entry.Type = UNKNOWN;
 				sidebar_entry.BuildableID = Map.Column[c].Buildables[b].BuildableID;
@@ -4370,9 +4450,9 @@ bool DLLExportClass::Get_Sidebar_State(uint64 player_id, unsigned char *buffer_i
 				sidebar_entry.SuperWeaponType = SW_NONE;
 
 				if (tech) {
-					sidebar_entry.Cost = tech->Cost * PlayerPtr->CostBias;
+					sidebar_entry.Cost = tech->Cost * PlayerPtr->CostBias; // MBL: If this gets modified, also modify below for skirmish and multiplayer
 					sidebar_entry.PowerProvided = 0;
-					sidebar_entry.BuildTime = tech->Time_To_Build(); // sidebar_entry.BuildTime = tech->Time_To_Build() / 60;
+					sidebar_entry.BuildTime = tech->Time_To_Build(PlayerPtr->Class->House); // sidebar_entry.BuildTime = tech->Time_To_Build() / 60;
 					strncpy(sidebar_entry.AssetName, tech->IniName, CNC_OBJECT_ASSET_NAME_LENGTH);
 				} else {
 					sidebar_entry.Cost = 0;
@@ -4513,6 +4593,8 @@ bool DLLExportClass::Get_Sidebar_State(uint64 player_id, unsigned char *buffer_i
 						return false;
 					}
 
+					memset(&sidebar_entry, 0, sizeof(sidebar_entry));
+
 					sidebar_entry.AssetName[0] = 0;
 					sidebar_entry.Type = UNKNOWN;
 					sidebar_entry.BuildableID = context_sidebar->Column[c].Buildables[b].BuildableID;
@@ -4525,9 +4607,15 @@ bool DLLExportClass::Get_Sidebar_State(uint64 player_id, unsigned char *buffer_i
 					sidebar_entry.SuperWeaponType = SW_NONE;
 
 					if (tech) {
-						sidebar_entry.Cost = tech->Cost;
+
+						// MBL 06.22.2020	- Updated to apply and difficulty abd/or faction price modifier; See https://jaas.ea.com/browse/TDRA-6864
+						// If this gets modified, also modify above for non-skirmish / non-multiplayer
+						//
+						// sidebar_entry.Cost = tech->Cost;
+						sidebar_entry.Cost = tech->Cost * PlayerPtr->CostBias;
+
 						sidebar_entry.PowerProvided = 0;
-						sidebar_entry.BuildTime = tech->Time_To_Build(); // sidebar_entry.BuildTime = tech->Time_To_Build() / 60;
+						sidebar_entry.BuildTime = tech->Time_To_Build(PlayerPtr->Class->House); // sidebar_entry.BuildTime = tech->Time_To_Build() / 60;
 						strncpy(sidebar_entry.AssetName, tech->IniName, CNC_OBJECT_ASSET_NAME_LENGTH);
 					} else {
 						sidebar_entry.Cost = 0;
@@ -7376,8 +7464,12 @@ void DLLExportClass::Selected_Guard_Mode(uint64 player_id)
 		for (int index = 0; index < CurrentObject.Count(); index++) {
 			ObjectClass const * tech = CurrentObject[index];
 
-			if (tech != NULL && tech->Can_Player_Move() && tech->Can_Player_Fire()) {
-				OutList.Add(EventClass(TargetClass(tech), MISSION_GUARD_AREA));
+			if (tech != NULL && tech->Can_Player_Fire()) {
+				if (tech->Can_Player_Move()) {
+					OutList.Add(EventClass(TargetClass(tech), MISSION_GUARD_AREA));
+				} else {
+					OutList.Add(EventClass(TargetClass(tech), MISSION_GUARD));
+				}
 			}
 		}
 	}
@@ -7458,6 +7550,8 @@ void DLLExportClass::Team_Units_Formation_Toggle_On(uint64 player_id)
 	int index;
 	bool setform = 0;
 
+	TeamFormDataStruct& team_form_data = TeamFormData[PlayerPtr->Class->House];
+
 	//
 	// Recording support
 	//
@@ -7481,8 +7575,8 @@ void DLLExportClass::Team_Units_Formation_Toggle_On(uint64 player_id)
 						team = obj->Group;
 						if (team < MAX_TEAMS) {
 							setform = obj->XFormOffset == (int)0x80000000;
-							TeamSpeed[team] = SPEED_WHEEL;
-							TeamMaxSpeed[team] = MPH_LIGHT_SPEED;
+							team_form_data.TeamSpeed[team] = SPEED_WHEEL;
+							team_form_data.TeamMaxSpeed[team] = MPH_LIGHT_SPEED;
 							break;
 						}
 					}
@@ -7500,8 +7594,8 @@ void DLLExportClass::Team_Units_Formation_Toggle_On(uint64 player_id)
 							team = obj->Group;
 							if (team < MAX_TEAMS) {
 								setform = obj->XFormOffset == (int)0x80000000;
-								TeamSpeed[team] = SPEED_WHEEL;
-								TeamMaxSpeed[team] = MPH_LIGHT_SPEED;
+								team_form_data.TeamSpeed[team] = SPEED_WHEEL;
+								team_form_data.TeamMaxSpeed[team] = MPH_LIGHT_SPEED;
 								break;
 							}
 						}
@@ -7521,8 +7615,8 @@ void DLLExportClass::Team_Units_Formation_Toggle_On(uint64 player_id)
 							team = obj->Group;
 							if (team < MAX_TEAMS) {
 								setform = obj->XFormOffset == 0x80000000UL;
-								TeamSpeed[team] = SPEED_WHEEL;
-								TeamMaxSpeed[team] = MPH_LIGHT_SPEED;
+								team_form_data.TeamSpeed[team] = SPEED_WHEEL;
+								team_form_data.TeamMaxSpeed[team] = MPH_LIGHT_SPEED;
 								break;
 							}
 						}
@@ -7547,9 +7641,9 @@ void DLLExportClass::Team_Units_Formation_Toggle_On(uint64 player_id)
 				if (xc > maxx) maxx = xc;
 				if (yc < miny) miny = yc;
 				if (yc > maxy) maxy = yc;
-				if (obj->Class->MaxSpeed < TeamMaxSpeed[team]) {
-					TeamMaxSpeed[team] = obj->Class->MaxSpeed;
-					TeamSpeed[team] = obj->Class->Speed;
+				if (obj->Class->MaxSpeed < team_form_data.TeamMaxSpeed[team]) {
+					team_form_data.TeamMaxSpeed[team] = obj->Class->MaxSpeed;
+					team_form_data.TeamSpeed[team] = obj->Class->Speed;
 				}
 			} else {
 				obj->XFormOffset = obj->YFormOffset = (int)0x80000000;
@@ -7568,8 +7662,8 @@ void DLLExportClass::Team_Units_Formation_Toggle_On(uint64 player_id)
 				if (xc > maxx) maxx = xc;
 				if (yc < miny) miny = yc;
 				if (yc > maxy) maxy = yc;
-				if (obj->Class->MaxSpeed < TeamMaxSpeed[team]) {
-					TeamMaxSpeed[team] = obj->Class->MaxSpeed;
+				if (obj->Class->MaxSpeed < team_form_data.TeamMaxSpeed[team]) {
+					team_form_data.TeamMaxSpeed[team] = obj->Class->MaxSpeed;
 				}
 			} else {
 				obj->XFormOffset = obj->YFormOffset = (int)0x80000000;
@@ -7588,8 +7682,8 @@ void DLLExportClass::Team_Units_Formation_Toggle_On(uint64 player_id)
 				if (xc > maxx) maxx = xc;
 				if (yc < miny) miny = yc;
 				if (yc > maxy) maxy = yc;
-				if (obj->Class->MaxSpeed < TeamMaxSpeed[team]) {
-					TeamMaxSpeed[team] = obj->Class->MaxSpeed;
+				if (obj->Class->MaxSpeed < team_form_data.TeamMaxSpeed[team]) {
+					team_form_data.TeamMaxSpeed[team] = obj->Class->MaxSpeed;
 				}
 			} else {
 				obj->XFormOffset = obj->YFormOffset = 0x80000000UL;
@@ -8158,7 +8252,7 @@ void DLLExportClass::Debug_Heal_Unit(int x, int y)
 					CellClass* cells[cellcount];
 					cells[0] = cellptr;
 					for (FacingType index = FACING_N; index < FACING_COUNT; index++) {
-						cells[(int)index + 1] = &cellptr->Adjacent_Cell(index);
+						cells[(int)index + 1] = cellptr->Adjacent_Cell(index);
 					}
 
 					for (int index = 0; index < cellcount; index++) {
@@ -8439,9 +8533,15 @@ bool DLLExportClass::Save(Pipe & pipe)
 	pipe.Put(&Special, sizeof(Special));
 
 	/*
+	** Special case for MPSuperWeaponDisable - store negated value so it defaults to enabled
+	*/
+	bool not_allow_super_weapons = !MPSuperWeaponDisable;
+	pipe.Put(&not_allow_super_weapons, sizeof(not_allow_super_weapons));
+
+	/*
 	** Room for save game expansion
 	*/
-	unsigned char padding[4096];
+	unsigned char padding[4095];
 	memset(padding, 0, sizeof(padding));
 	
 	pipe.Put(padding, sizeof(padding));
@@ -8524,7 +8624,23 @@ bool DLLExportClass::Load(Straw & file)
 		return false;
 	}
 
-	unsigned char padding[4096];
+	/*
+	** Restore backup
+	*/
+	if (SpecialBackup != NULL) {
+		memcpy(SpecialBackup, &Special, sizeof(SpecialClass));
+	}
+
+	/*
+	** Special case for MPSuperWeaponDisable - store negated value so it defaults to enabled
+	*/
+	bool not_allow_super_weapons = false;
+	if (file.Get(&not_allow_super_weapons, sizeof(not_allow_super_weapons)) != sizeof(not_allow_super_weapons)) {
+		return false;
+	}
+	MPSuperWeaponDisable = !not_allow_super_weapons;
+
+	unsigned char padding[4095];
 	
 	if (file.Get(padding, sizeof(padding)) != sizeof(padding)) {
 		return false;

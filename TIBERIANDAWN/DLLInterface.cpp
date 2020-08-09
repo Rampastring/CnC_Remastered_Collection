@@ -106,7 +106,7 @@ typedef enum {
 */
 #define RANDOM_START_POSITION 0x7f
 
-
+#define KILL_PLAYER_ON_DISCONNECT 1
 
 
 
@@ -672,6 +672,7 @@ extern "C" __declspec(dllexport) bool __cdecl CNC_Set_Multiplayer_Data(int scena
 	Special.IsVisceroids = game_options.SpawnVisceroids;
 	Special.IsCaptureTheFlag = game_options.CaptureTheFlag;
 	Special.IsEarlyWin = game_options.DestroyStructures;
+	Special.ModernBalance = game_options.ModernBalance;
 
 	Rule.AllowSuperWeapons = game_options.EnableSuperweapons;	// Are superweapons available
 
@@ -1314,7 +1315,9 @@ extern "C" __declspec(dllexport) bool __cdecl CNC_Start_Custom_Instance(const ch
 
 	Clear_Scenario();
 
-	Read_Scenario_Ini_File(scenario_file_name, bin_file_name, scenario_name, true);
+	if (!Read_Scenario_Ini_File(scenario_file_name, bin_file_name, scenario_name, true)) {
+		return false;
+	}
 
 	HiddenPage.Clear();
 	VisiblePage.Clear();
@@ -1695,7 +1698,13 @@ extern "C" __declspec(dllexport) bool __cdecl CNC_Save_Load(bool save, const cha
 		}
 		
 		result = Load_Game(file_path_and_name);
-		
+
+		// MBL 07.21.2020
+		if (result == false)
+		{
+			return false;
+		}
+
 		DLLExportClass::Set_Player_Context(DLLExportClass::GlyphxPlayerIDs[0], true);
 		Set_Logic_Page(SeenBuff);
 		VisiblePage.Clear();
@@ -1747,9 +1756,6 @@ extern "C" __declspec(dllexport) void __cdecl CNC_Handle_Player_Switch_To_AI(uin
 	if (PlayerWins || PlayerLoses || DLLExportClass::Get_Game_Over()) {
 		return;
 	}
-
-	HousesType house;
-	HouseClass *ptr;
 	
 	GlyphX_Debug_Print("CNC_Handle_Player_Switch_To_AI");
 
@@ -1757,7 +1763,26 @@ extern "C" __declspec(dllexport) void __cdecl CNC_Handle_Player_Switch_To_AI(uin
 		return;
 	}
 	
+#ifdef KILL_PLAYER_ON_DISCONNECT
+
+	/*
+	** Kill player's units on disconnect.
+	*/
 	if (player_id != 0) {
+		DLLExportClass::Set_Player_Context(player_id);
+
+		if (PlayerPtr) {
+			PlayerPtr->Flag_To_Die();
+		}
+	}
+
+#else //KILL_PLAYER_ON_DISCONNECT
+
+	if (player_id != 0) {
+		
+		HousesType house;
+		HouseClass *ptr;
+		
 		DLLExportClass::Set_Player_Context(player_id);
 
 		if (PlayerPtr) {
@@ -1803,6 +1828,9 @@ extern "C" __declspec(dllexport) void __cdecl CNC_Handle_Player_Switch_To_AI(uin
 			}
 		}
 	}
+
+#endif //KILL_PLAYER_ON_DISCONNECT
+
 }
 
 
@@ -2489,18 +2517,26 @@ void DLLExportClass::On_Multiplayer_Game_Over(void)
 	event.GameOver.SabotagedStructureType = 0;
 	event.GameOver.TimerRemaining = -1;
 
-	// Trigger an event for each human player
-	for (int i=0 ; i<MPlayerCount ; i++) {
+	// Trigger an event for each human player, winner first (even if it's an AI)
+	for (int i = 0; i < MPlayerCount; i++) {
 		HouseClass* player_ptr = HouseClass::As_Pointer(MPlayerHouses[i]);	//HouseClass::As_Pointer(HOUSE_MULTI2);
-		if ( player_ptr != NULL )
-		{
-			if ( player_ptr->IsHuman == true ) 
-			{
-				event.GlyphXPlayerID = Get_GlyphX_Player_ID(player_ptr);
-				event.GameOver.PlayerWins = !player_ptr->IsDefeated;
-				event.GameOver.RemainingCredits = player_ptr->Available_Money();
-				EventCallback(event);
-			}
+		if (player_ptr != NULL && !player_ptr->IsDefeated) {
+			event.GlyphXPlayerID = Get_GlyphX_Player_ID(player_ptr);
+			event.GameOver.IsHuman = player_ptr->IsHuman;
+			event.GameOver.PlayerWins = true;
+			event.GameOver.RemainingCredits = player_ptr->Available_Money();
+			EventCallback(event);
+		}
+	}
+
+	for (int i = 0; i < MPlayerCount; i++) {
+		HouseClass* player_ptr = HouseClass::As_Pointer(MPlayerHouses[i]);	//HouseClass::As_Pointer(HOUSE_MULTI2);
+		if (player_ptr != NULL && player_ptr->IsHuman && player_ptr->IsDefeated) {
+			event.GlyphXPlayerID = Get_GlyphX_Player_ID(player_ptr);
+			event.GameOver.IsHuman = true;
+			event.GameOver.PlayerWins = false;
+			event.GameOver.RemainingCredits = player_ptr->Available_Money();
+			EventCallback(event);
 		}
 	}
 }
@@ -2911,6 +2947,7 @@ void DLL_Draw_Line_Intercept(int x, int y, int x1, int y1, unsigned char color, 
 void DLLExportClass::DLL_Draw_Intercept(int shape_number, int x, int y, int width, int height, int flags, ObjectClass *object, const char *shape_file_name, char override_owner, int scale)
 {
 	CNCObjectStruct& new_object = ObjectList->Objects[TotalObjectCount + CurrentDrawCount];
+	memset(&new_object, 0, sizeof(new_object));
 	Convert_Type(object, new_object);
 	if (new_object.Type == UNKNOWN) {
 		return;
@@ -3761,6 +3798,10 @@ extern "C" __declspec(dllexport) void __cdecl CNC_Handle_Sidebar_Request(Sidebar
 	
 	switch (request_type) {
 		
+		// MBL 06.02.2020 - Changing right-click support for first put building on hold, and then subsequenct right-clicks to decrement that queue count for 1x or 5x; Then, 1x or 5x Left click will resume from hold
+		// Handle and fall through to start construction (from hold state) below
+		case SIDEBAR_REQUEST_START_CONSTRUCTION_MULTI:
+
 		case SIDEBAR_REQUEST_START_CONSTRUCTION:
 			DLLExportClass::Start_Construction(player_id, buildable_type, buildable_id);
 			break;
@@ -3981,6 +4022,8 @@ bool DLLExportClass::Get_Sidebar_State(uint64 player_id, unsigned char *buffer_i
 				if ((entry_index + 1) * sizeof(CNCSidebarEntryStruct) + memory_needed > buffer_size) {
 					return false;
 				}
+				
+				memset(&sidebar_entry, 0, sizeof(sidebar_entry));
 
 				sidebar_entry.AssetName[0] = 0;
 				sidebar_entry.Type = UNKNOWN;
@@ -4160,6 +4203,8 @@ bool DLLExportClass::Get_Sidebar_State(uint64 player_id, unsigned char *buffer_i
 						return false;
 					}
 
+					memset(&sidebar_entry, 0, sizeof(sidebar_entry));
+
 					sidebar_entry.AssetName[0] = 0;
 					sidebar_entry.Type = UNKNOWN;
 					sidebar_entry.BuildableID = context_sidebar->Column[c].Buildables[b].BuildableID;
@@ -4321,6 +4366,8 @@ bool DLLExportClass::Get_Sidebar_State(uint64 player_id, unsigned char *buffer_i
 }
 
 
+static const int _map_width_shift_bits = 6;
+
 void DLLExportClass::Calculate_Placement_Distances(BuildingTypeClass* placement_type, unsigned char* placement_distance)
 {
 	int map_cell_x = Map.MapCellX;
@@ -4349,7 +4396,7 @@ void DLLExportClass::Calculate_Placement_Distances(BuildingTypeClass* placement_
 	memset(placement_distance, 255U, MAP_CELL_TOTAL);
 	for (int y = 0; y < map_cell_height; y++) {
 		for (int x = 0; x < map_cell_width; x++) {
-			CELL cell = (CELL)map_cell_x + x + ((map_cell_y + y) << 6);
+			CELL cell = (CELL)map_cell_x + x + ((map_cell_y + y) << _map_width_shift_bits);
 			BuildingClass* base = (BuildingClass*)Map[cell].Cell_Find_Object(RTTI_BUILDING);
 			if ((base && base->House->Class->House == PlayerPtr->Class->House) || (Map[cell].Owner == PlayerPtr->Class->House)) {
 				placement_distance[cell] = 0U;
@@ -4440,7 +4487,7 @@ bool DLLExportClass::Get_Placement_State(uint64 player_id, unsigned char *buffer
 	for (int y=0 ; y < map_cell_height ; y++) {
 		for (int x=0 ; x < map_cell_width ; x++) {
 
-			CELL cell = (CELL) map_cell_x + x + ((map_cell_y + y) << 6);
+			CELL cell = (CELL) map_cell_x + x + ((map_cell_y + y) << _map_width_shift_bits);
 
 			bool pass = Passes_Proximity_Check(cell, PlacementType[CurrentLocalPlayerIndex], PlacementDistance[CurrentLocalPlayerIndex]);
 
@@ -5101,7 +5148,7 @@ Map.Passes_Proximity_Check
 				map_cell_height++;
 			}
 
-			CELL cell = (CELL) (map_cell_x + cell_x) + ( (map_cell_y + cell_y) << 6 );
+			CELL cell = (CELL) (map_cell_x + cell_x) + ( (map_cell_y + cell_y) << _map_width_shift_bits );
 
 			/*
 			** Call the place directly instead of queueing it, so we can evaluate the return code.
@@ -6627,8 +6674,12 @@ void DLLExportClass::Selected_Guard_Mode(uint64 player_id)
 		for (int index = 0; index < CurrentObject.Count(); index++) {
 			ObjectClass const * tech = CurrentObject[index];
 
-			if (tech && tech->Can_Player_Move() && tech->Can_Player_Fire()) {
-				OutList.Add(EventClass(tech->As_Target(), MISSION_GUARD_AREA));
+			if (tech && tech->Can_Player_Fire()) {
+				if (tech->Can_Player_Move()) {
+					OutList.Add(EventClass(tech->As_Target(), MISSION_GUARD_AREA));
+				} else {
+					OutList.Add(EventClass(tech->As_Target(), MISSION_GUARD));
+				}
 			}
 		}
 	}
@@ -7158,7 +7209,7 @@ void DLLExportClass::Debug_Heal_Unit(int x, int y)
 					CellClass* cells[cellcount];
 					cells[0] = cellptr;
 					for (FacingType index = FACING_N; index < FACING_COUNT; index++) {
-						cells[(int)index + 1] = &cellptr->Adjacent_Cell(index);
+						cells[(int)index + 1] = cellptr->Adjacent_Cell(index);
 					}
 
 					for (int index = 0; index < cellcount; index++) {
@@ -7469,9 +7520,17 @@ bool DLLExportClass::Save(FileClass & file)
 	}
 
 	/*
+	** Special case for Rule.AllowSuperWeapons - store negated value so it defaults to enabled
+	*/
+	bool not_allow_super_weapons = !Rule.AllowSuperWeapons;
+	if (file.Write(&not_allow_super_weapons, sizeof(not_allow_super_weapons)) != sizeof(not_allow_super_weapons)) {
+		return false;
+	}
+
+	/*
 	** Room for save game expansion
 	*/
-	unsigned char padding[4096];
+	unsigned char padding[4095];
 	memset(padding, 0, sizeof(padding));
 
 	if (file.Write(padding, sizeof(padding)) != sizeof(padding)) {
@@ -7586,7 +7645,16 @@ bool DLLExportClass::Load(FileClass & file)
 		return false;
 	}
 
-	unsigned char padding[4096];
+	/*
+	** Special case for Rule.AllowSuperWeapons - store negated value so it defaults to enabled
+	*/
+	bool not_allow_super_weapons = false;
+	if (file.Read(&not_allow_super_weapons, sizeof(not_allow_super_weapons)) != sizeof(not_allow_super_weapons)) {
+		return false;
+	}
+	Rule.AllowSuperWeapons = !not_allow_super_weapons;
+
+	unsigned char padding[4095];
 
 	if (file.Read(padding, sizeof(padding)) != sizeof(padding)) {
 		return false;

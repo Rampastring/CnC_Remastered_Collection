@@ -2323,6 +2323,7 @@ typedef enum AnimType : char {
 	ANIM_CRATE_TQUAKE,
 	ANIM_PARA_BOMB,
 	ANIM_MINE_EXP1,
+	ANIM_FLAG,
 
 #ifdef FIXIT_ANTS
 	ANIM_ANT1_DEATH,
@@ -3612,6 +3613,15 @@ typedef enum OptionControlType : char {
 
 	OPTION_COUNT
 } OptionControlType;
+
+
+/****************************************************************************
+**	Used to store firing data for a unit.
+*/
+typedef struct {
+	COORDINATE Center;
+	int Distance;
+} FireDataType;
 
 
 #define size_of(typ,id) sizeof(((typ*)0)->id)

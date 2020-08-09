@@ -3146,9 +3146,9 @@ int DisplayClass::TacticalClass::Action(unsigned flags, KeyNumType & key)
 			object = Map.Close_Object(coord);
 
 			/*
-			**	Special case check to ignore cloaked object if not owned by the player.
+			**	Special case check to ignore cloaked object if not allied with the player.
 			*/
-			if (object != NULL && object->Is_Techno() && !((TechnoClass *)object)->IsOwnedByPlayer && (((TechnoClass *)object)->Cloak == CLOAKED || ((TechnoClass *)object)->Techno_Type_Class()->IsInvisible)) {
+			if (object != NULL && object->Is_Techno() && ((TechnoClass *)object)->Is_Cloaked(PlayerPtr, true)) {
 				object = NULL;
 			}
 		}
@@ -4024,7 +4024,7 @@ void DisplayClass::Mouse_Left_Release(CELL cell, int x, int y, ObjectClass * obj
 							/*
 							**	Only consider objects that are owned by the player.
 							*/
-							if (!foot->IsOwnedByPlayer) continue;
+							if (!foot->Is_Owned_By_Player()) continue;
 
 							/*
 							**	If another member of this team has been discovered and
