@@ -838,11 +838,7 @@ RadioMessageType UnitClass::Receive_Message(RadioClass * from, RadioMessageType 
 							**	transport doors. Close the doors if the transport is or needs
 							**	to rotate.
 							*/
-#ifdef FIXIT_PHASETRANSPORT	//	checked - ajw 9/28/98
 							if (*this == UNIT_APC || *this == UNIT_PHASE) {
-#else
-							if (*this == UNIT_APC) {
-#endif
 								if (IsRotating) {
 									if (!Is_Door_Closed()) {
 										APC_Close_Door();
@@ -860,11 +856,7 @@ RadioMessageType UnitClass::Receive_Message(RadioClass * from, RadioMessageType 
 							**	directly.
 							*/
 							if (Transmit_Message(RADIO_MOVE_HERE, param, from) == RADIO_YEA_NOW_WHAT) {
-#ifdef FIXIT_PHASETRANSPORT	//	checked - ajw 9/28/98
 								if ( (*this != UNIT_APC && *this != UNIT_PHASE) || Is_Door_Open()) {
-#else
-								if (*this != UNIT_APC || Is_Door_Open()) {
-#endif
 									param = (long)As_Target();
 									Transmit_Message(RADIO_TETHER);
 									if (Transmit_Message(RADIO_MOVE_HERE, param, from) != RADIO_ROGER) {
@@ -1299,7 +1291,7 @@ void UnitClass::Player_Assign_Mission(MissionType mission, TARGET target, TARGET
  *    state. This idle state varies depending on what the current internal computer            *
  *    settings of the unit is as well as what kind of unit it is.                              *
  *                                                                                             *
- * INPUT:   initial  -- Is this called when the unit just leaves a factory or is initially     *
+ * INPUT:   initial  -- Is this called when the unit just leaves a factory or                  *
  *                      or is initially placed on the map?                                     *
  *                                                                                             *
  * OUTPUT:  none                                                                               *
