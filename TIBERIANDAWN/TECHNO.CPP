@@ -1884,6 +1884,46 @@ void TechnoClass::AI(void)
 	DoorClass::AI();
 
 	/*
+**	Attack Move by Butch: If attack move was activated and a target is near, try to kill it. Remember the target
+**	and where you wanted to head to, so you can a) know when the target is killed and b) head back onto your initial route
+*/
+
+	if (Is_Owned_By_Player() && (What_Am_I() == RTTI_UNIT || What_Am_I() == RTTI_INFANTRY || What_Am_I() == RTTI_AIRCRAFT) && AttackMove == true) {
+
+		// As we are in attack move, there must be a navigation target. If RememberedNavCom is initial, this means we have to remember it. 
+		// Because it takes one tick more to update the NavCom, than this method is even call, we have to wait one tick before remembering.
+		// And we only remember once, because NavCom might be updated while pursuing enemies on the way to the target
+		if (RememberedNavCom == 0) {
+			NavComDelay++;
+			if (NavComDelay > 1) {
+				RememberedNavCom = ((FootClass*)this)->NavCom;
+				NavComDelay = 0;
+			}
+		}
+
+		// If something is targeted, check if it's in shooting range. If not, and something else is forget it, as there might be better targets
+		if (TarCom) {
+			if (!In_Range(TarCom) && Target_Something_Nearby(THREAT_RANGE)) {
+				RememberedTarCom = 0;
+			}
+		}
+
+		// If a target is in proximity, attack it, but like above, be sure to wait one tick. Another thread is issuing a MOVE order to the vehicle
+		// which we don't want
+		if (Target_Something_Nearby(THREAT_AREA) && !RememberedTarCom) {
+			Assign_Destination(TARGET_NONE);
+			((FootClass*)this)->Approach_Target();
+			Set_Mission(MISSION_ATTACK);
+
+			TarComDelay++;
+			if (TarComDelay > 1) {
+				RememberedTarCom = TarCom;
+				TarComDelay = 0;
+			}
+		}
+	}
+
+	/*
 	** Handle decision to re-cloak here. Process the cloaking/decloaking operation.
 	*/
 	if (IsCloakable) {
@@ -2671,6 +2711,14 @@ ActionType TechnoClass::What_Action(CELL cell) const
 		optr = &OverlayTypeClass::As_Reference(cellptr->Overlay);
 	}
 
+	if (Is_Owned_By_Player() && Techno_Type_Class()->Primary != WEAPON_NONE && shiftdown) {
+		// Attack Move by Butch: We set ACTION_ATTACKMOVE but later on highjack it and change it back to ACTION_MOVE and set an attack move member attribute
+		// instead. We could change every single code line where ACTION_MOVE is used, but I don't want to edit every single code line where ACTION_MOVE is used,
+		// as I don't want to have huge footprint with this mod. And all that trouble because this method is const (and I tried to change that, messed up everything)	
+		// Overwrites SHIFT action further down
+		return(ACTION_ATTACKMOVE);
+	}
+
 	/*
 	**	Special guard area mission is possible if both the control and the
 	**	alt keys are held down.
@@ -3014,6 +3062,27 @@ ResultType TechnoClass::Take_Damage(int & damage, int distance, WarheadType warh
 		case RESULT_DESTROYED:
 			Transmit_Message(RADIO_OVER_OUT);
 			Stun();
+
+			// Attack Move by Butch: All vehicles who targeted this unit are send back moving to their initial coordinates, attack move is left active
+			for (int i = 0; i < Units.Count(); i++) {
+				FootClass * unit = Units.Ptr(i);
+				if (unit && unit->RememberedNavCom && As_Object(unit->RememberedTarCom) == this) {
+					unit->RememberedTarCom = 0;
+					unit->Assign_Destination(unit->RememberedNavCom);
+					unit->Set_Mission(MISSION_MOVE);
+				}
+			}
+
+			// Attack Move by Butch: All infantry who targeted this unit are send back moving to their initial coordinates
+			for (int i = 0; i < Infantry.Count(); i++) {
+				FootClass * inf = Infantry.Ptr(i);
+				if (inf && inf->RememberedNavCom && As_Object(inf->RememberedTarCom) == this) {
+					inf->Stop_Driver();
+					inf->RememberedTarCom = 0;
+					inf->Assign_Destination(inf->RememberedNavCom);
+					inf->Set_Mission(MISSION_MOVE);
+				}
+			}
 
 			/*
 			** May trigger an achievement. ST - 11/14/2019 1:56PM
@@ -4807,3 +4876,11 @@ int TechnoTypeClass::Legal_Placement(CELL pos) const
 	return(1);
 }
 #endif //USE_RA_AI
+
+// Attack Move by Butch
+void TechnoClass::ResetAttackMove()
+{
+	RememberedNavCom = 0;
+	RememberedTarCom = 0;
+	AttackMove = false;
+}

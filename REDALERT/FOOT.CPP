@@ -492,6 +492,8 @@ int FootClass::Mission_Move(void)
 	assert(IsActive);
 
 	if (!Target_Legal(NavCom) && !IsDriving && MissionQueue == MISSION_NONE) {
+		// Attack Move by Butch: Destination reached, snap out of attack mode
+		ResetAttackMove();
 		Enter_Idle_Mode();
 		return(1);
 	}
@@ -1308,6 +1310,9 @@ void FootClass::Active_Click_With(ActionType action, CELL cell)
 			Player_Assign_Mission(MISSION_HARVEST, TARGET_NONE, ::As_Target(cell));
 			break;
 
+		// Attack Move by Butch
+		case ACTION_ATTACKMOVE:
+			this->AttackMove = true;
 		case ACTION_MOVE:
 			if (AllowVoice) {
 				COORDINATE coord = Map.Pixel_To_Coord(Get_Mouse_X(), Get_Mouse_Y());

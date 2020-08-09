@@ -1067,6 +1067,7 @@ typedef enum BStateType : char {
 typedef enum ActionType : unsigned char {
 	ACTION_NONE,			// Either undefined action or "do nothing".
 	ACTION_MOVE,			// Can move there or at least try to.
+	ACTION_ATTACKMOVE,		// Attack Move by Butch: Attack move
 	ACTION_NOMOVE,			// Special case for movable object, but illegal mouse position.
 	ACTION_ENTER,			// Special case for infantry->APC or vehicle->Repair facility.
 	ACTION_SELF,			// Self select special case.
