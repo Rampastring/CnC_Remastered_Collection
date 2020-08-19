@@ -298,6 +298,11 @@ DiffType HouseClass::Assign_Handicap(DiffType handicap)
 		RepairDelay = Rule.Diff[handicap].RepairDelay;
 		BuildDelay = Rule.Diff[handicap].BuildDelay;
 		BuildSpeedBias = hptr->BuildSpeedBias * Rule.Diff[handicap].BuildSpeedBias * Rule.GameSpeedBias;
+
+		if (handicap == DIFF_EASY)
+			CostBias = fixed(0.33f);
+		else if (handicap == DIFF_NORMAL && !IsHuman)
+			CostBias = fixed(0.75f);
 	} else {
 		FirepowerBias = Rule.Diff[handicap].FirepowerBias;
 		GroundspeedBias = Rule.Diff[handicap].GroundspeedBias * Rule.GameSpeedBias;
@@ -1896,6 +1901,7 @@ void HouseClass::Harvested(unsigned tiberium)
 
 	Tiberium += tiberium;
 	if (Tiberium > Capacity) {
+		
 		Tiberium = Capacity;
 		IsMaxedOut = true;
 	}
