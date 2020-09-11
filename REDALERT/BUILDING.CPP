@@ -5653,6 +5653,30 @@ void BuildingClass::Factory_AI(void)
 		}
 	}
 
+	/* 
+	**	If our house has too few harvesters or refineries and no money left,
+	**	abandon production to get credits for income-generating objects
+	*/
+	if (House->Available_Money() < 500 && Factory->Get_Object() != nullptr) {
+
+		TechnoClass *object = Factory->Get_Object();
+
+		if (House->QuantityU(UNIT_HARVESTER) == 0 && House->QuantityB(STRUCT_WEAP) > 0) {
+			if (object->What_Am_I() != RTTI_UNIT || ((UnitClass*)object)->Class->Type != UNIT_HARVESTER) {
+				Factory->Abandon();
+				return;
+			}
+		}
+
+		if (House->QuantityB(STRUCT_REFINERY) == 0 && House->QuantityB(STRUCT_CONST) > 0) {
+			if (object->What_Am_I() != RTTI_BUILDING || ((BuildingClass*)object)->Class->Type != STRUCT_REFINERY) {
+				Factory->Abandon();
+				return;
+			}
+		}
+	}
+
+
 	/*
 	**	Pick something to create for this factory.
 	*/

@@ -1324,6 +1324,9 @@ void HouseClass::AI(void)
 		Do_All_To_Hunt();
 	}
 
+	// Do we have too few harvesters and no money left?
+	
+
 	AI_Building();
 	AI_Unit();
 	AI_Vessel();
@@ -5055,6 +5058,9 @@ int HouseClass::Expert_AI(void)
 		*/
 		Enemy = enemy;
 
+		// If we don't have any harvesters left and we have no money left, sell all refineries.
+
+
 		/*
 		**	Up the maximum allowed units and buildings to match a rough average
 		**	of what the enemies are allowed.
@@ -5067,20 +5073,20 @@ int HouseClass::Expert_AI(void)
 			maxaircraft /= enemycount;
 		}
 
-		if (Control.MaxBuilding < (unsigned)maxbuilding + 10) {
-			Control.MaxBuilding = maxbuilding + 10;
+		if (Control.MaxBuilding < (unsigned)maxbuilding + 20) {
+			Control.MaxBuilding = maxbuilding + 20;
 		}
-		if (Control.MaxUnit < (unsigned)maxunit + 10) {
-			Control.MaxUnit = maxunit + 10;
+		if (Control.MaxUnit < (unsigned)maxunit + 20) {
+			Control.MaxUnit = maxunit + 20;
 		}
-		if (Control.MaxInfantry < (unsigned)maxinfantry + 10) {
-			Control.MaxInfantry = maxinfantry + 10;
+		if (Control.MaxInfantry < (unsigned)maxinfantry + 20) {
+			Control.MaxInfantry = maxinfantry + 20;
 		}
-		if (Control.MaxVessel < (unsigned)maxvessel + 10) {
-			Control.MaxVessel = maxvessel + 10;
+		if (Control.MaxVessel < (unsigned)maxvessel + 20) {
+			Control.MaxVessel = maxvessel + 20;
 		}
-		if (Control.MaxAircraft < (unsigned)maxaircraft + 10) {
-			Control.MaxAircraft = maxaircraft + 10;
+		if (Control.MaxAircraft < (unsigned)maxaircraft + 20) {
+			Control.MaxAircraft = maxaircraft + 20;
 		}
 	}
 
@@ -6142,7 +6148,7 @@ int HouseClass::AI_Unit(void)
 	**	A computer controlled house will try to build a replacement
 	**	harvester if possible.
 	*/
-	if (IQ >= Rule.IQHarvester && !IsTiberiumShort && !IsHuman && BQuantity[STRUCT_REFINERY] > UQuantity[UNIT_HARVESTER] && Difficulty != DIFF_HARD) {
+	if (IQ >= Rule.IQHarvester && !IsTiberiumShort && !IsHuman && (UQuantity[UNIT_HARVESTER] * 2) < BQuantity[STRUCT_REFINERY]) {
 		if (UnitTypeClass::As_Reference(UNIT_HARVESTER).Level <= (unsigned)Control.TechLevel) {
 			BuildUnit = UNIT_HARVESTER;
 			return(TICKS_PER_SECOND);
@@ -6262,7 +6268,6 @@ int HouseClass::AI_Unit(void)
 
 	return(TICKS_PER_SECOND);
 }
-
 
 int HouseClass::AI_Vessel(void)
 {
@@ -6624,6 +6629,14 @@ int HouseClass::AI_Aircraft(void)
 	return(TICKS_PER_SECOND);
 }
 
+
+/*
+** Checks if the AI has too few harvesters.
+*/
+bool HouseClass::HasTooFewHarvesters(void)
+{
+	return UQuantity[UNIT_HARVESTER] < (BQuantity[STRUCT_REFINERY] * 2);
+}
 
 /***********************************************************************************************
  * HouseClass::Production_Begun -- Records that production has begun.                          *

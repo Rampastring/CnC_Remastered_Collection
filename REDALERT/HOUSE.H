@@ -847,6 +847,8 @@ class HouseClass {
 		*/
 		bool Extend_Wall(OverlayTypeClass const& wall, HousesType house, CELL cell, DirType dir, int step);
 
+		bool HasTooFewHarvesters(void);
+
 	private:
 		void Silo_Redraw_Check(long oldtib, long oldcap);
 		int AI_Building(void);
