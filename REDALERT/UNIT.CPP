@@ -100,6 +100,32 @@
 #include	"function.h"
 #include "COORDA.h"
 
+
+extern void Logic_Switch_Player_Context(ObjectClass *object);
+extern void Logic_Switch_Player_Context(HouseClass *object);
+extern void On_Special_Weapon_Targetting(const HouseClass* player_ptr, SpecialWeaponType weapon_type);
+extern bool Is_Legacy_Render_Enabled(void);
+
+
+static int _GapShroudXTable[]={
+		-1, 0, 1,
+	-2,-1, 0, 1, 2,
+	-2,-1, 0, 1, 2,
+	-2,-1, 0, 1, 2,
+	-2,-1, 0, 1, 2,
+	-2,-1, 0, 1, 2,
+		-1, 0, 1
+};
+static int _GapShroudYTable[]={
+		-3,-3,-3,
+	-2,-2,-2,-2,-2,
+	-1,-1,-1,-1,-1,
+	 0, 0, 0, 0, 0,
+	 1, 1, 1, 1, 1,
+	 2, 2, 2, 2, 2,
+		 3, 3, 3
+};
+
 /***********************************************************************************************
  * Recoil_Adjust -- Adjust pixel values in direction specified.                                *
  *                                                                                             *
@@ -290,7 +316,9 @@ UnitClass::UnitClass(UnitType classid, HousesType house) :
 	ShroudBits(0xFFFFFFFFUL),
 	ShroudCenter(0),
 	Reload(0),
-	SecondaryFacing(PrimaryFacing)
+	SecondaryFacing(PrimaryFacing),
+	LastDockingBayCoord(0),
+	InitHarvest(false)
 {
 	Reload = 0;
 	House->Tracking_Add(this);
@@ -306,9 +334,6 @@ UnitClass::UnitClass(UnitType classid, HousesType house) :
 	*/
 	IsSecondShot = !Class->Is_Two_Shooter();
 	Strength = Class->MaxStrength;
-
-	LastDockingBayCoord = 0;
-	InitHarvest = false;
 
 	/*
 	** Keep count of the number of units created.
@@ -2412,10 +2437,6 @@ bool UnitClass::Harvesting(void)
  * HISTORY:                                                                                    *
  *   07/18/1994 JLB : Created.                                                                 *
  *=============================================================================================*/
-extern void Logic_Switch_Player_Context(ObjectClass *object);
-extern void Logic_Switch_Player_Context(HouseClass *object);
-extern void On_Special_Weapon_Targetting(const HouseClass* player_ptr, SpecialWeaponType weapon_type);
-
 int UnitClass::Mission_Unload(void)
 {
 	assert(Units.ID(this) == ID);
@@ -4584,7 +4605,7 @@ void UnitClass::Overrun_Square(CELL cell, bool threaten)
 						if (object->Height == 0) {
 							AnimClass* anim = new AnimClass(ANIM_CORPSE1, object->Center_Coord());
 							if (anim != NULL) {
-								anim->OwnerHouse = object->Owner();
+								anim->Set_Owner(object->Owner());
 							}
 						}
 						object->Record_The_Kill(this);
@@ -5089,64 +5110,143 @@ bool UnitClass::Limbo(void)
 	return(false);
 }
 
+
+
+/***********************************************************************************************
+ * UnitClass::Apply_Temporary_Jamming_Shroud -- Apply a temporary gap generator shroud effect  *
+ *                                                                                             *
+ *    This is intended as a temporary effect that is active only during export of the          *
+ *    shroud data                                                                              *
+ *                                                                                             *
+ * INPUT:   House to apply effect for                                                          *
+ *                                                                                             *
+ * OUTPUT:  Bitmask of cells that effect was applied to                                        *
+ *                                                                                             *
+ * WARNINGS:   none                                                                            *
+ *                                                                                             *
+ * HISTORY:                                                                                    *
+ *   8/19/2020 12:13PM ST : Created.                                                           *
+ *=============================================================================================*/
+unsigned int UnitClass::Apply_Temporary_Jamming_Shroud(HouseClass *house_to_apply_for)
+{
+	unsigned int shroud_bits_applied = 0;
+
+	if (!IsActive || !Strength) {
+		return shroud_bits_applied;
+	}
+
+	if (!Class->IsGapper) {
+		return shroud_bits_applied;
+	}
+
+	CELL shroud_center = Coord_Cell(Center_Coord());
+	int centerx = Cell_X(shroud_center);
+	int centery = Cell_Y(shroud_center);
+	CELL trycell;
+
+	for (int index = 0; index < 31; index++) {
+		shroud_bits_applied <<= 1;
+		trycell = XY_Cell(centerx + _GapShroudXTable[index], centery + _GapShroudYTable[index]);
+		if (Map[trycell].Is_Mapped(house_to_apply_for)) {
+			Map.Jam_Cell(trycell, House);
+			shroud_bits_applied |= 1;
+		}
+	}
+
+	if (shroud_bits_applied) {
+		Map.Constrained_Look(Coord, 5 * CELL_LEPTON_W, house_to_apply_for);
+	}
+	
+	return shroud_bits_applied;
+}	
+	
+	
+			  
+/***********************************************************************************************
+ * UnitClass::Unapply_Temporary_Jamming_Shroud -- Remove temporary gap generator shroud effect *
+ *                                                                                             *
+ *    Remove gap effect added by Apply_Temporary_Jamming_Shroud                                *
+ *                                                                                             *
+ * INPUT:   House to unapply effect for                                                        *
+ *          Bitmask of cells that effect was applied to                                        *
+ *                                                                                             *
+ * OUTPUT:                                                                                     *
+ *                                                                                             *
+ * WARNINGS:   none                                                                            *
+ *                                                                                             *
+ * HISTORY:                                                                                    *
+ *   8/19/2020 12:16PM ST : Created.                                                           *
+ *=============================================================================================*/
+void UnitClass::Unapply_Temporary_Jamming_Shroud(HouseClass *house_to_unapply_for, unsigned int shroud_bits_applied)
+{
+	if (!IsActive || !Strength) {
+		return;
+	}
+
+	if (!Class->IsGapper) {
+		return;
+	}
+
+	CELL shroud_center = Coord_Cell(Center_Coord());
+	int centerx = Cell_X(shroud_center);
+	int centery = Cell_Y(shroud_center);
+	CELL trycell;
+
+	for (int index = 30; index >= 0 && shroud_bits_applied; index--) {
+		if (shroud_bits_applied & 1) {
+			trycell = XY_Cell(centerx + _GapShroudXTable[index], centery + _GapShroudYTable[index]);
+			Map.UnJam_Cell(trycell, House);
+			Map.Map_Cell(trycell, house_to_unapply_for);
+		}
+		shroud_bits_applied >>= 1;
+	}
+}	
+
+
+
 /*
 ** Updated for client/server multiplayer - ST 8/12/2019 11:46AM
 */
 void UnitClass::Shroud_Regen(void)
 {
 	if (Class->IsGapper/*KO && !House->IsPlayerControl*/) {
-		static int _xtab[]={
-			   -1, 0, 1,
-			-2,-1, 0, 1, 2,
-			-2,-1, 0, 1, 2,
-			-2,-1, 0, 1, 2,
-			-2,-1, 0, 1, 2,
-			-2,-1, 0, 1, 2,
-			   -1, 0, 1
-		};
-		static int _ytab[]={
-			   -3,-3,-3,
-			-2,-2,-2,-2,-2,
-			-1,-1,-1,-1,-1,
-			 0, 0, 0, 0, 0,
-			 1, 1, 1, 1, 1,
-			 2, 2, 2, 2, 2,
-			    3, 3, 3
-		};
+		
 		int index;
 		int centerx, centery;
 		CELL trycell;
 
-		// Only restore under the shroud if it's a valid field.
-		if (ShroudBits != (unsigned)-1L) {
-			centerx = Cell_X(ShroudCenter);
-			centery = Cell_Y(ShroudCenter);
-			for (index = 30; index >= 0 && ShroudBits; index--) {
-				if (ShroudBits & 1) {
-					trycell = XY_Cell(centerx + _xtab[index], centery + _ytab[index]);
-#if(0)
-					Map.Map_Cell(trycell, PlayerPtr);
-#else
-				Map.UnJam_Cell(trycell, House);
-				Map.Map_Cell(trycell, House);
-#endif
+		if (Session.Type != GAME_GLYPHX_MULTIPLAYER || Is_Legacy_Render_Enabled()) {
+			// Only restore under the shroud if it's a valid field.
+			if (ShroudBits != (unsigned)-1L) {
+				centerx = Cell_X(ShroudCenter);
+				centery = Cell_Y(ShroudCenter);
+				for (index = 30; index >= 0 && ShroudBits; index--) {
+					if (ShroudBits & 1) {
+						trycell = XY_Cell(centerx + _GapShroudXTable[index], centery + _GapShroudYTable[index]);
+	#if(0)
+						Map.Map_Cell(trycell, PlayerPtr);
+	#else
+					Map.UnJam_Cell(trycell, House);
+					Map.Map_Cell(trycell, House);
+	#endif
+					}
+					ShroudBits >>= 1;
 				}
-				ShroudBits >>= 1;
 			}
-		}
 
-		if(IsActive && Strength) {
-			// Now shroud around the new center
-			ShroudBits = 0L;
-			ShroudCenter = Coord_Cell(Center_Coord());
-			centerx = Cell_X(ShroudCenter);
-			centery = Cell_Y(ShroudCenter);
-			for (index = 0; index < 31; index++) {
-				ShroudBits <<= 1;
-				trycell = XY_Cell(centerx + _xtab[index], centery + _ytab[index]);
-				if (Map[trycell].Is_Mapped(House)) {
-					Map.Jam_Cell(trycell, House);
-					ShroudBits |= 1;
+			if(IsActive && Strength) {
+				// Now shroud around the new center
+				ShroudBits = 0L;
+				ShroudCenter = Coord_Cell(Center_Coord());
+				centerx = Cell_X(ShroudCenter);
+				centery = Cell_Y(ShroudCenter);
+				for (index = 0; index < 31; index++) {
+					ShroudBits <<= 1;
+					trycell = XY_Cell(centerx + _GapShroudXTable[index], centery + _GapShroudYTable[index]);
+					if (Map[trycell].Is_Mapped(House)) {
+						Map.Jam_Cell(trycell, House);
+						ShroudBits |= 1;
+					}
 				}
 			}
 		}
@@ -5161,14 +5261,15 @@ void UnitClass::Shroud_Regen(void)
 		
 		} else {
 		
-			for (int i = 0; i < Session.Players.Count(); i++) {
-				HouseClass *player_house = HouseClass::As_Pointer(Session.Players[i]->Player.ID);
-				if (player_house->IsHuman && player_house != House) {
-					Map.Constrained_Look(Coord, 5 * CELL_LEPTON_W, player_house);
+			if (Is_Legacy_Render_Enabled()) {
+				for (int i = 0; i < Session.Players.Count(); i++) {
+					HouseClass *player_house = HouseClass::As_Pointer(Session.Players[i]->Player.ID);
+					if (player_house->IsHuman && player_house != House) {
+						Map.Constrained_Look(Coord, 5 * CELL_LEPTON_W, player_house);
+					}
 				}
 			}
 		}
-	
 	}
 }
 

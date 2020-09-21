@@ -158,6 +158,9 @@ class UnitClass :	public DriveClass
 		void APC_Close_Door(void);
 		void APC_Open_Door(void);
 
+		unsigned int Apply_Temporary_Jamming_Shroud(HouseClass *house_to_apply_for);
+		void Unapply_Temporary_Jamming_Shroud(HouseClass *house_to_unapply_for, unsigned int shroud_bits_applied);
+
 		/*
 		**	Query functions.
 		*/
