@@ -432,6 +432,15 @@ bool ObjectClass::Can_Demolish_Unit(void) const
 }
 
 
+bool ObjectClass::Can_Capture(void) const
+{
+	assert(this != 0);
+	assert(IsActive);
+
+	return(false);
+}
+
+
 /***********************************************************************************************
  * ObjectClass::Can_Player_Fire -- Can the player give this object an attack mission?          *
  *                                                                                             *
@@ -627,6 +636,14 @@ COORDINATE ObjectClass::Sort_Y(void) const
  * HISTORY:                                                                                    *
  *   09/21/1995 JLB : Created.                                                                 *
  *=============================================================================================*/
+FireDataType ObjectClass::Fire_Data(int which) const
+{
+	assert(this != 0);
+	assert(IsActive);
+
+	return{Fire_Coord(which),0};
+}
+
 COORDINATE ObjectClass::Fire_Coord(int ) const
 {
 	assert(this != 0);

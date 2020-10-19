@@ -677,6 +677,10 @@ void InfantryClass::Per_Cell_Process(bool center)
 	*/
 	if (center && Mission == MISSION_CAPTURE) {
 		TechnoClass * tech = cellptr->Cell_Techno();
+		if (tech && tech->As_Target() == NavCom && tech->What_Am_I() == RTTI_BUILDING && !tech->Can_Capture()) {
+			tech = NULL;
+			Assign_Destination(TARGET_NONE);
+		}
 		if (tech && tech->As_Target() == NavCom) {
 			tech->Captured(House);
 			Delete_This();
@@ -882,7 +886,7 @@ void InfantryClass::Look(bool incremental)
 
 	if (!IsInLimbo) {
 		//if (IsOwnedByPlayer) {			// Changed for multiple player mapping. ST - 3/6/2019 1:27PM
-		if (House->IsHuman) {
+		if (House->IsHuman || GameToPlay != GAME_NORMAL) {
 			sight = Class->SightRange;
 
 			if (sight) {
@@ -1098,7 +1102,14 @@ void InfantryClass::AI(void)
 	**		run in circles, scream, and shout.
 	*/
 	if (Class->IsFraidyCat && Fear > FEAR_ANXIOUS && !IsDriving && !Target_Legal(NavCom)) {
-		Scatter(true);
+		Scatter(0);
+	}
+
+	/*
+	**	Scatter infantry off buildings in guard modes.
+	*/
+	if (!IsTethered && !IsFiring && !IsDriving && !IsRotating && (Mission == MISSION_GUARD || Mission == MISSION_GUARD_AREA) && MissionQueue == MISSION_NONE && Map[Coord_Cell(Coord)].Cell_Building() != NULL) {
+		Scatter(0, true, true);
 	}
 
 	/*
@@ -1659,7 +1670,7 @@ MoveType InfantryClass::Can_Enter_Cell(CELL cell, FacingType ) const
 					**	Cloaked enemy objects are not considered if this is a Find_Path()
 					**	call.
 					*/
-					if (!obj->Is_Techno() || ((TechnoClass *)obj)->Cloak != CLOAKED) {
+					if (!obj->Is_Techno() || !((TechnoClass *)obj)->Is_Cloaked(this)) {
 
 						/*
 						**	Any non-allied blockage is considered impassible if the infantry
@@ -2447,7 +2458,8 @@ bool InfantryClass::Unlimbo(COORDINATE coord, DirType facing)
 		**	If there is no sight range, then this object isn't discovered by the player unless
 		**	it actually appears in a cell mapped by the player.
 		*/
-		if (Class->SightRange == 0) {
+		if (Class->SightRange == 0 && GameToPlay == GAME_NORMAL && !House->IsHuman && !Map[Coord_Cell(coord)].Is_Visible(PlayerPtr)) {
+			IsDiscoveredByPlayerMask &= ~(1 << (int)PlayerPtr->Class->House);
 			IsDiscoveredByPlayer = false;
 		}
 

@@ -84,6 +84,7 @@ class UnitClass :	public TarComClass
 		bool  Harvesting(void);
 		void  APC_Close_Door(void);
 		void  APC_Open_Door(void);
+		virtual BuildingClass*  Find_Best_Refinery(void) const;
 
 		/*
 		**	Query functions.
@@ -156,6 +157,7 @@ class UnitClass :	public TarComClass
 		virtual int Mission_Guard(void);
 		virtual int Mission_Harvest(void);
 		virtual int Mission_Hunt(void);
+		virtual int Mission_Enter(void);
 		virtual int UnitClass::Mission_Move(void);
 		virtual FireErrorType Can_Fire(TARGET, int which) const;
 
@@ -200,9 +202,14 @@ class UnitClass :	public TarComClass
 		TCountDownTimerClass HarvestTimer;
 
 		/*
+		**	This is the refinery a harvester is interested in unloading at.
+		*/
+		mutable BuildingClass* TiberiumUnloadRefinery;
+
+		/*
 		** Some additional padding in case we need to add data to the class and maintain backwards compatibility for save/load
 		*/
-		unsigned char SaveLoadPadding[32];
+		unsigned char SaveLoadPadding[28];
 
 		/*
 		** This contains the value of the Virtual Function Table Pointer
