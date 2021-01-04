@@ -6072,6 +6072,25 @@ int HouseClass::AI_Building(void)
 			}
 		}
 #endif
+		
+		
+		
+		
+		/*
+	**	Build a missle silo eventually asap
+	*/
+		current = BQuantity[STRUCT_MSLO];
+		if (current == 0) 
+		{
+			b = &BuildingTypeClass::As_Reference(STRUCT_MSLO);
+			if (Can_Build(b, ActLike) && b->Cost_Of() < money) {
+				choiceptr = BuildChoice.Alloc();
+				if (choiceptr) {
+					*choiceptr = BuildChoiceClass(URGENCY_HIGH, b->Type);
+				}
+			}
+		}
+
 
 		/*
 		**	Pick the choice that is the most urgent.
